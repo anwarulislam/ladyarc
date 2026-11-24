@@ -124,6 +124,7 @@
 #include <QPointer>
 #include <QSaveFile>
 #include <QScreen>
+#include <QSettings>
 #include <QShortcut>
 #include <QStatusBar>
 #include <QStandardPaths>
@@ -971,6 +972,7 @@ ErrorOr<void> Application::connect_to_hub(Main::Arguments const& arguments)
     m_settings = make<WebView::Settings>(WebView::Settings::create_from_json(TRY(JsonValue::from_string(state.settings_json))));
     create_session_store(state.data_directory, state.persists_sessions);
     create_history_store(state.data_directory, state.uses_sql_database);
+    m_desktop_preferences = make<QSettings>(qstring_from_ak_string(LexicalPath::join(state.config_directory, "Ladyarc.ini"sv).string()), QSettings::IniFormat);
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(state.config_directory, "Bookmarks.json"sv).string(), *m_favicon_store));
 
     m_browser_options.disable_sandbox = state.sandbox_is_disabled ? WebView::DisableSandbox::Yes : WebView::DisableSandbox::No;
@@ -1300,6 +1302,7 @@ void Application::create_platform_actions()
     m_profile_is_temporary = WebView::Application::profile().is_temporary();
     create_session_store(WebView::Application::profile().paths().data, hub.persists_sessions());
     create_history_store(WebView::Application::profile().paths().data, WebView::Application::browser_options().disable_sql_database == WebView::DisableSQLDatabase::No);
+    m_desktop_preferences = make<QSettings>(qstring_from_ak_string(LexicalPath::join(WebView::Application::profile().paths().config, "Ladyarc.ini"sv).string()), QSettings::IniFormat);
     m_bookmark_store = make<BookmarkStore>(BookmarkStore::create(LexicalPath::join(WebView::Application::profile().paths().config, "Bookmarks.json"sv).string(), *m_favicon_store));
 
     m_application_actions = make<ApplicationActions>(ApplicationActions::PageOptions {

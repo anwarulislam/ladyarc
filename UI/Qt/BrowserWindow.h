@@ -318,6 +318,7 @@ private:
     void switch_space(QString const&);
     void cycle_space(int delta);
     void refresh_space_sidebar();
+    void refresh_favorites();
     void show_tab_in_space(int position);
     void cycle_visible_tab(int delta);
     void cycle_recent_tab(int delta);
@@ -366,6 +367,7 @@ private:
     QHash<QString, QPointer<Tab>> m_last_space_tab;
     QDockWidget* m_space_sidebar { nullptr };
     QComboBox* m_space_picker { nullptr };
+    QListWidget* m_favorites_list { nullptr };
     QListWidget* m_space_tab_list { nullptr };
     QList<QPointer<Tab>> m_listed_space_tabs;
     QList<QPointer<Tab>> m_recent_tabs;

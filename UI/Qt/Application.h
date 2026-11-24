@@ -32,6 +32,7 @@
 class QAction;
 class QMenu;
 class QMenuBar;
+class QSettings;
 class QWidget;
 
 namespace Ladybird {
@@ -103,6 +104,7 @@ public:
     Function<void(Vector<URL::URL> const&)> on_new_window;
     static WebView::Settings& settings() { return *s_the->m_settings; }
     static Bookmarks& bookmarks() { return *s_the->m_bookmarks; }
+    static QSettings& desktop_preferences() { return *s_the->m_desktop_preferences; }
     static BookmarkStore& bookmark_store() { return *s_the->m_bookmark_store; }
 
     // The windows and tabs of each kind of window, which this run keeps for the next one unless they are private.
@@ -380,6 +382,7 @@ private:
     OwnPtr<WebView::FaviconStore> m_favicon_store;
     OwnPtr<WebView::FaviconStore> m_private_favicon_store;
     OwnPtr<BookmarkStore> m_bookmark_store;
+    OwnPtr<QSettings> m_desktop_preferences;
     OwnPtr<WebView::HistoryStore> m_history_store;
     OwnPtr<WebView::AutocompleteService> m_autocomplete_service;
     bool m_should_remove_unreferenced_favicons { false };

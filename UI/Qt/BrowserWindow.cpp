@@ -733,6 +733,7 @@ void BrowserWindow::update_tabs_display()
 void BrowserWindow::rebuild_bookmarks_menu()
 {
     m_tabs_container->bookmarks_bar().rebuild();
+    refresh_favorites();
 }
 
 void BrowserWindow::on_devtools_enabled()

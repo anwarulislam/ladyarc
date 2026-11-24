@@ -2,8 +2,11 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibWebView/HistoryStore.h>
 #include <UI/Qt/Application.h>
+#include <UI/Qt/BookmarkStore.h>
 #include <UI/Qt/BrowserWindow.h>
+#include <UI/Qt/Icon.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/StringUtils.h>
 
@@ -12,7 +15,9 @@
 #include <QInputDialog>
 #include <QListWidget>
 #include <QMenuBar>
+#include <QSettings>
 #include <QSignalBlocker>
+#include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -25,6 +30,29 @@ void BrowserWindow::initialize_spaces()
         return;
     auto* menu = m_ladybird_menu->addMenu("Spaces");
     menuBar()->addMenu(menu);
+    auto* favorite = menu->addAction("Add Current Page to Favorites");
+    connect(favorite, &QAction::triggered, this, [this] {
+        if (!current_tab())
+            return;
+        auto& store = Application::bookmark_store();
+        auto& preferences = Application::desktop_preferences();
+        auto id = ak_string_from_qstring(preferences.value("favorites/folder").toString());
+        auto folder = store.find_item_by_id(id);
+        if (!folder.has_value() || !folder->is_folder()) {
+            id = store.add_folder("Favorites"_string);
+            preferences.setValue("favorites/folder", qstring_from_ak_string(id));
+        } else {
+            for (auto const& item : folder->folder().children) {
+                if (item.is_bookmark() && item.bookmark().url == current_tab()->url())
+                    return;
+            }
+        }
+        Optional<String> favicon;
+        if (auto bookmark = store.find_bookmark_by_url(current_tab()->url()); bookmark.has_value())
+            favicon = bookmark->bookmark().favicon_hash;
+        store.add_bookmark(current_tab()->url(), ak_string_from_qstring(current_tab()->title()), move(favicon), id);
+    });
+    refresh_favorites();
     auto* create = menu->addAction("New Space…");
     connect(create, &QAction::triggered, this, [this] {
         auto name = QInputDialog::getText(this, "New Space", "Space name").trimmed().left(72);
@@ -143,6 +171,40 @@ void BrowserWindow::create_space_sidebar()
     m_space_sidebar->setFeatures(QDockWidget::NoDockWidgetFeatures);
     auto* panel = new QWidget(m_space_sidebar);
     auto* layout = new QVBoxLayout(panel);
+    m_favorites_list = new QListWidget(panel);
+    m_favorites_list->setAccessibleName("Global favorites");
+    m_favorites_list->setViewMode(QListView::IconMode);
+    m_favorites_list->setMovement(QListView::Static);
+    m_favorites_list->setFlow(QListView::LeftToRight);
+    m_favorites_list->setWrapping(false);
+    m_favorites_list->setFixedHeight(54);
+    m_favorites_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    layout->addWidget(m_favorites_list);
+    connect(m_favorites_list, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+        auto id = ak_string_from_qstring(item->data(Qt::UserRole).toString());
+        auto favorite = Application::bookmark_store().find_item_by_id(id);
+        if (!favorite.has_value() || !favorite->is_bookmark())
+            return;
+        auto url = favorite->bookmark().url;
+        for (int i = 0; i < tab_count(); ++i) {
+            if (tab_at(i)->space_name() == m_active_space && tab_at(i)->url() == url) {
+                activate_tab(i);
+                return;
+            }
+        }
+        new_tab_from_url(url, Web::HTML::ActivateTab::Yes, TabLocation::end());
+    });
+    connect(m_favorites_list, &QListWidget::itemActivated, m_favorites_list, &QListWidget::itemClicked);
+    connect(m_favorites_list, &QWidget::customContextMenuRequested, this, [this](QPoint pos) {
+        auto* item = m_favorites_list->itemAt(pos);
+        if (!item)
+            return;
+        auto id = ak_string_from_qstring(item->data(Qt::UserRole).toString());
+        QMenu menu(this);
+        auto* remove = menu.addAction("Remove Favorite");
+        if (menu.exec(m_favorites_list->viewport()->mapToGlobal(pos)) == remove)
+            Application::bookmark_store().remove_item(id);
+    });
     m_space_picker = new QComboBox(panel);
     m_space_picker->setAccessibleName("Current Space");
     layout->addWidget(m_space_picker);
@@ -169,7 +231,48 @@ void BrowserWindow::create_space_sidebar()
     addDockWidget(Qt::LeftDockWidgetArea, m_space_sidebar);
     m_tabs_container->set_space_sidebar_visible(true);
     update_tabs_display();
+    refresh_favorites();
     refresh_space_sidebar();
+}
+
+void BrowserWindow::refresh_favorites()
+{
+    if (m_is_popup_window == IsPopupWindow::Yes)
+        return;
+    auto id = ak_string_from_qstring(Application::desktop_preferences().value("favorites/folder").toString());
+    auto& store = Application::bookmark_store();
+    auto folder = store.find_item_by_id(id);
+    auto has_items = folder.has_value() && folder->is_folder() && !folder->folder().children.is_empty();
+    if (!m_favorites_list) {
+        if (has_items)
+            create_space_sidebar();
+        return;
+    }
+    m_favorites_list->clear();
+    m_favorites_list->setVisible(has_items);
+    if (!has_items)
+        return;
+    for (auto const& child : folder->folder().children) {
+        if (!child.is_bookmark())
+            continue;
+        auto const& bookmark = child.bookmark();
+        auto label = qstring_from_ak_string(bookmark.title.value_or(bookmark.url.serialize()));
+        QIcon icon;
+        if (bookmark.favicon_hash.has_value()) {
+            if (auto bytes = store.favicon_png(*bookmark.favicon_hash); bytes.has_value())
+                icon = favicon_from_png(bytes->bytes(), 24);
+        }
+        if (icon.isNull()) {
+            if (auto entry = history_entry_for_url(bookmark.url); entry.has_value() && entry->favicon_png.has_value())
+                icon = favicon_from_png(entry->favicon_png->bytes(), 24);
+        }
+        if (icon.isNull())
+            icon = style()->standardIcon(QStyle::SP_FileIcon);
+        auto* item = new QListWidgetItem(icon, {}, m_favorites_list);
+        item->setToolTip(label);
+        item->setData(Qt::AccessibleTextRole, label);
+        item->setData(Qt::UserRole, qstring_from_ak_string(child.id));
+    }
 }
 
 void BrowserWindow::refresh_space_sidebar()
