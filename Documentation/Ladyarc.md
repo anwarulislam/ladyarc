@@ -36,7 +36,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 
 Desktop Arc interactions have implementation priority. Cross-device services, mobile, DRM, browser extensions and platform credentials remain tracked here.
 
-- [ ] Import Arc Spaces, pinned tabs and folders.
+- [x] Spaces → Import Arc Spaces reads a StorableSidebar.json file. It preserves named Spaces, web pins and nested folders. Saved pins open on demand. Importing the same Space again skips it.
 - [ ] Run Chrome Web Store extensions, including a password manager, blocker and page modifier.
 - [ ] Play DRM-protected streams with a licensed content decryption module.
 - [ ] Use platform passkeys with WebAuthn.

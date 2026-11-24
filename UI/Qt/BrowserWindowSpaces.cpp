@@ -40,8 +40,21 @@ void BrowserWindow::initialize_spaces()
         return;
     auto* menu = m_ladybird_menu->addMenu("Spaces");
     menuBar()->addMenu(menu);
-    if (is_private() == WebView::IsPrivate::No)
+    if (is_private() == WebView::IsPrivate::No) {
+        auto& prefs = Application::desktop_preferences();
+        prefs.beginGroup("pinned-folders");
+        auto keys = prefs.childKeys();
+        prefs.endGroup();
+        for (auto const& key : keys) {
+            auto name = QUrl::fromPercentEncoding(key.toLatin1());
+            if (!m_spaces.contains(name) && space_bookmarks_folder(name, false).has_value())
+                m_spaces.append(name);
+        }
+        if (m_spaces.size() > 1)
+            create_space_sidebar();
+        connect(menu->addAction("Import Arc Spaces…"), &QAction::triggered, this, &BrowserWindow::import_arc_spaces);
         initialize_archive(*menu);
+    }
     auto* favorite = menu->addAction("Add Current Page to Favorites");
     connect(favorite, &QAction::triggered, this, [this] {
         if (!current_tab())

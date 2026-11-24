@@ -312,6 +312,16 @@ String BookmarkStore::add_folder(Optional<String> title, Optional<String const&>
     return id;
 }
 
+void BookmarkStore::add_imported_folder(BookmarkItem item)
+{
+    VERIFY(item.is_folder());
+    if (find_item_by_id(item.id).has_value())
+        return;
+    m_items.append(move(item));
+    persist_bookmarks();
+    notify_observers();
+}
+
 void BookmarkStore::import_items(JsonArray const& items_array)
 {
     auto imported_items = parse_bookmark_items(items_array);

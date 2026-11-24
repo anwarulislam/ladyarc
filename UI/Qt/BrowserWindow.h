@@ -319,6 +319,7 @@ private:
     void set_current_tab(Tab* tab);
     void initialize_spaces();
     void initialize_archive(QMenu&);
+    void import_arc_spaces();
     void archive_inactive_tabs();
     void create_space_sidebar();
     void switch_space(QString const&);
