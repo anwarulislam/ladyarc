@@ -1859,7 +1859,7 @@ void Application::open_new_tab()
         return;
     }
 
-    m_active_window->open_new_tab();
+    m_active_window->show_command_bar();
 }
 
 BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsPrivate is_private)

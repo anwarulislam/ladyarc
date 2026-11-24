@@ -276,6 +276,7 @@ public slots:
     void tab_audio_state_changed(int index);
     Tab& new_tab_from_url(URL::URL const&, Web::HTML::ActivateTab, TabLocation);
     void open_new_tab();
+    void show_command_bar();
     void activate_tab(int index);
     bool definitely_close_tab(int index);
     void move_tab(int old_index, int new_index);

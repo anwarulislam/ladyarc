@@ -22,7 +22,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 ## Browsing
 
 - [ ] Display multiple tabs in split view.
-- [ ] Search tabs, history, bookmarks and commands from the new-tab command bar. The omnibox and tab search supply parts of this interaction.
+- [x] Command/Ctrl+T searches open tabs, bookmark titles and URLs, browsing history, and browser commands. Arrow keys select a result. Enter opens it and Escape dismisses the palette. Private windows omit profile history.
 - [ ] Route external links to a Space or profile by rule.
 - [ ] Save per-site styles, scripts or element customizations.
 - [ ] Start picture-in-picture automatically on tab switch. The browser already has a picture-in-picture window.

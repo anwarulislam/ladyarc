@@ -28,6 +28,7 @@ add_library(ladybird_impl STATIC
     DownloadsPage.cpp
     BrowserWindow.cpp
     BrowserWindowSpaces.cpp
+    CommandBar.cpp
     ChromeStyle.cpp
     CompositorLayersWindow.cpp
     ContextMenus.cpp
