@@ -184,6 +184,7 @@ public:
     bool has_picture_in_picture_window() const { return !m_picture_in_picture_windows.is_empty(); }
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
+    BrowserWindow* window_of_view(u64 view_id) const;
 
 #if defined(LADYBIRD_HAS_SPARKLE)
     SoftwareUpdater* software_updater() { return m_software_updater.ptr(); }
@@ -277,7 +278,6 @@ private:
     void activate_or_open_tab_with_url(URL::URL const&);
 
     BrowserWindow* tabbed_window(WebView::IsPrivate) const;
-    BrowserWindow* window_of_view(u64 view_id) const;
     BrowserWindow* window_for_new_tab(Optional<u64> source_view_id, WebView::IsPrivate) const;
     void open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id, Web::HTML::ActivateTab);
     void open_url_in_new_tab(URL::URL const&, Web::HTML::ActivateTab, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id = 0) const;
