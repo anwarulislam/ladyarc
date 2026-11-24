@@ -26,6 +26,7 @@
 #include <LibWebView/TabPerformanceMonitor.h>
 #include <LibWebView/UpdateCheck.h>
 #include <LibWebView/WebCompatReport.h>
+#include <LibWebView/WebContentPage.h>
 #include <LibWebView/WebUI/ApplicationWebUI.h>
 
 namespace Hub {
@@ -1222,6 +1223,12 @@ void ConnectionFromUI::view_download_url(u64 view_id, URL::URL url, bool prompt_
 {
     if (auto* view = find_view(view_id))
         view->download_url(url, prompt_for_path ? WebView::ViewImplementation::PromptForPath::Yes : WebView::ViewImplementation::PromptForPath::No, image_mime_type);
+}
+
+void ConnectionFromUI::view_set_site_style(u64 view_id, URL::Origin origin, Utf16String source)
+{
+    if (auto* view = find_view(view_id); view && view->url().origin().is_same_origin(origin))
+        view->page().async_set_site_style(origin, move(source));
 }
 
 void ConnectionFromUI::view_capture_context_menu_element(u64 view_id)

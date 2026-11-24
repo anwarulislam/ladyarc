@@ -64,6 +64,8 @@
 #include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QInputDialog>
+#include <QSettings>
 #include <QTimeEdit>
 #include <QTimer>
 #include <QToolButton>
@@ -357,6 +359,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
     set_loading(view().is_loading());
 
     view().on_load_finish = [this](auto const&) {
+        apply_site_style();
         m_suppress_javascript_dialogs_until_navigation = false;
     };
 
@@ -375,6 +378,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
 
     view().on_url_change = [this](auto const& url) {
         m_location_edit->set_url(url);
+        apply_site_style();
     };
 
     m_location_edit->on_navigation = [this](auto input, auto fallback_url, auto destination_kind) {
@@ -1251,6 +1255,47 @@ void Tab::update_tab_icon()
     if (index < 0)
         return;
     emit favicon_changed(index, tab_icon());
+}
+
+static QString site_style_key(URL::URL const& url)
+{
+    return "site-styles/" + QString::fromLatin1(QUrl::toPercentEncoding(qstring_from_ak_string(url.origin().serialize())));
+}
+
+void Tab::apply_site_style()
+{
+    if (!is_loaded() || !url().scheme().is_one_of("http"sv, "https"sv))
+        return;
+    auto css = Application::desktop_preferences().value(site_style_key(url())).toString();
+    if (!css.isEmpty())
+        HubConnection::the().async_view_set_site_style(view().view_id(), url().origin(), utf16_string_from_qstring(css));
+}
+
+void Tab::edit_site_style()
+{
+    auto target = url();
+    if (!target.scheme().is_one_of("http"sv, "https"sv))
+        return;
+    auto key = site_style_key(target);
+    auto& settings = Application::desktop_preferences();
+    bool accepted = false;
+    auto css = QInputDialog::getMultiLineText(m_window, "Site Boost", "Custom CSS for " + qstring_from_ak_string(target.origin().serialize()), settings.value(key).toString(), &accepted);
+    if (!accepted)
+        return;
+    if (css.trimmed().isEmpty()) {
+        settings.remove(key);
+        css.clear();
+    } else {
+        settings.setValue(key, css);
+    }
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = qobject_cast<BrowserWindow*>(widget)) {
+            window->for_each_tab([&](Tab& tab) {
+                if (tab.url().origin().is_same_origin(target.origin()))
+                    HubConnection::the().async_view_set_site_style(tab.view().view_id(), target.origin(), utf16_string_from_qstring(css));
+            });
+        }
+    }
 }
 
 void Tab::open_file()

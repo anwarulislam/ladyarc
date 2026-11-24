@@ -3494,6 +3494,15 @@ void ConnectionFromClient::set_autoplay_settings(Web::PageId, Web::HTML::Autopla
     Web::HTML::AutoplaySettings::the().set_policy(policy, site_policies);
 }
 
+void ConnectionFromClient::set_site_style(Web::PageId page_id, URL::Origin origin, Utf16String source)
+{
+    if (auto client = page(page_id); client.has_value() && client->page().has_local_traversable()) {
+        auto document = client->page().local_traversable()->active_document();
+        if (document && document->origin().is_same_origin(origin))
+            document->set_site_style(move(source));
+    }
+}
+
 void ConnectionFromClient::set_preferred_color_scheme(Web::PageId page_id, Web::CSS::PreferredColorScheme color_scheme)
 {
     if (auto page = this->page(page_id); page.has_value())

@@ -204,6 +204,7 @@ private:
     virtual void view_download_translation_languages(u64 view_id, String target_language) override;
     virtual void view_prefer_higher_quality_translation(u64 view_id, bool prefers_higher_quality) override;
     virtual void view_download_url(u64 view_id, URL::URL url, bool prompt_for_path, Optional<String> image_mime_type) override;
+    virtual void view_set_site_style(u64 view_id, URL::Origin, Utf16String) override;
     virtual void view_capture_context_menu_element(u64 view_id) override;
     virtual void view_inspect_context_menu_element(u64 view_id) override;
     virtual void view_replace_context_menu_misspelling(u64 view_id, Utf16String replacement) override;

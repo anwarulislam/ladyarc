@@ -185,6 +185,7 @@ endpoint HubServer
     view_prefer_higher_quality_translation(u64 view_id, bool prefers_higher_quality) =|
     view_download_url(u64 view_id, URL::URL url, bool prompt_for_path, Optional<String> image_mime_type) =|
     view_inspect_context_menu_element(u64 view_id) =|
+    view_set_site_style(u64 view_id, URL::Origin origin, Utf16String source) =|
     view_capture_context_menu_element(u64 view_id) =|
     view_replace_context_menu_misspelling(u64 view_id, Utf16String replacement) =|
     view_ignore_misspelling(u64 view_id, Utf16String word) =|

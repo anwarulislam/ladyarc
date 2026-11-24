@@ -119,6 +119,8 @@ public:
     void load_html(StringView);
 
     void open_file();
+    void apply_site_style();
+    void edit_site_style();
 
     void show_find_in_page();
     void find_previous();

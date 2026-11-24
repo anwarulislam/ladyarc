@@ -582,6 +582,12 @@ void BrowserWindow::initialize_ladybird_menu()
     m_ladybird_menu->addAction(application.new_tab_action());
     m_ladybird_menu->addAction(application.new_window_action());
     m_ladybird_menu->addAction(application.little_window_action());
+    auto* boost = m_ladybird_menu->addAction("Edit Site Boost…");
+    boost->setEnabled(is_private() == WebView::IsPrivate::No);
+    connect(boost, &QAction::triggered, this, [this] {
+        if (current_tab())
+            current_tab()->edit_site_style();
+    });
     auto* copy_clean_link = m_ladybird_menu->addAction("Copy Clean Link");
     copy_clean_link->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C));
     addAction(copy_clean_link);

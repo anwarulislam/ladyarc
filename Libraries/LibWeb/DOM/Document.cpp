@@ -1196,6 +1196,14 @@ Utf16String const& Document::content_blocker_style_sheet()
     return m_content_blocker_style_sheet.value();
 }
 
+void Document::set_site_style(Utf16String source)
+{
+    if (m_site_style == source)
+        return;
+    m_site_style = move(source);
+    style_scope().invalidate_user_style_sheet();
+}
+
 void Document::invalidate_content_blocker_style_sheet()
 {
     m_content_blocker_style_sheet.clear();
