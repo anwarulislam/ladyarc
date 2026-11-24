@@ -56,6 +56,19 @@ jobs:
           key: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-${{ hashFiles('vcpkg*.json', 'Meta/CMake/vcpkg/**', '.github/actions/setup/action.yml') }}
           restore-keys: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-
 
+      - name: Install Linux dependencies for the bundled Qt platform plugins
+        if: matrix.platform == 'Linux'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get -o Acquire::Retries=3 update
+          apt-get install -y --no-install-recommends \
+            libatspi2.0-dev libegl-dev libglu1-mesa-dev libudev-dev libvulkan-dev \
+            libx11-xcb-dev libxcb-cursor-dev libxcb-image0-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev libxcb-sync-dev \
+            libxcb-util-dev libxcb-xfixes0-dev libxcb-xinput-dev libxcb-xkb-dev \
+            libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrender-dev patchelf wayland-protocols
+
       - name: Configure the browser
         env:
           CC: clang
