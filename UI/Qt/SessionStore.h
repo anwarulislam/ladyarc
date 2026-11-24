@@ -41,6 +41,7 @@ struct ClosedSessionTab {
     Optional<WebView::SessionHistorySnapshot> history;
     bool pinned { false };
     String space_name {};
+    String pin_home_url {};
 };
 
 struct ClosedSessionUnit {
@@ -84,6 +85,7 @@ struct RestoredSessionTab {
     URL::URL url;
     bool pinned { false };
     String space_name {};
+    String pin_home_url {};
 };
 
 // A window that startup recovery kept open for the frontend to show, with its tabs in order.
@@ -115,6 +117,7 @@ public:
         Optional<i64> insertion_index;
         IsActive is_active { IsActive::No };
         String space_name {};
+        String pin_home_url {};
     };
 
     struct TabStateUpdate {
@@ -176,7 +179,7 @@ public:
     // A pin moves the tab into or out of the pinned tabs at the start of its window, so it's written at once, together
     // with the window's tab order: Launch restore depends on both. And a write that fails leaves the window's metadata
     // dirty, for the next flush to retry.
-    ErrorOr<void> tab_pinned_changed(SessionTabId, bool pinned);
+    ErrorOr<void> tab_pinned_changed(SessionTabId, bool pinned, Optional<URL::URL> home = {});
     void active_tab_changed(SessionTabId);
     void application_quitting();
     void application_quit_aborted();
@@ -292,6 +295,7 @@ private:
         bool dirty { false };
         bool pinned { false };
         String space_name {};
+        String pin_home_url {};
     };
 
     struct OpenWindow {
@@ -310,6 +314,7 @@ private:
         Optional<WebView::SessionHistorySnapshot> history;
         bool pinned { false };
         String space_name {};
+        String pin_home_url {};
     };
 
     struct ClosedUnit {
@@ -341,6 +346,7 @@ private:
         WebView::SessionHistorySnapshot const* snapshot { nullptr };
         bool pinned { false };
         String space_name {};
+        String pin_home_url {};
     };
 
     // Always the complete live-plus-pending order, so persisted units stay contiguous while failed
@@ -348,7 +354,7 @@ private:
     struct WindowMetadataWrite {
         SessionWindowId id { 0 };
         Vector<SessionTabId> tabs_in_order;
-        HashTable<SessionTabId> pinned_tabs;
+        HashMap<SessionTabId, String> pinned_tabs;
         i64 active_tab_index { 0 };
         i64 activation_sequence { 0 };
         Optional<SessionWindowGeometry> geometry;
@@ -417,6 +423,7 @@ private:
         size_t current_used_step_index { 0 };
         bool pinned { false };
         String space_name {};
+        String pin_home_url {};
     };
 
     struct RecoveredWindow {
@@ -515,7 +522,7 @@ private:
         size_t window_count() const { return m_windows.size(); }
 
         void set_tab_state(SessionTabId, Optional<WebView::SessionHistorySnapshot>, URL::URL, bool dirty);
-        bool set_tab_pinned(SessionTabId, bool pinned);
+        bool set_tab_pinned(SessionTabId, bool pinned, Optional<URL::URL> const& home);
         void set_tab_space(SessionTabId, String);
         void mark_tab_flushed(SessionTabId, size_t current_used_step_index);
         void set_active_tab(SessionTabId);

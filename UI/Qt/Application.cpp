@@ -2128,7 +2128,7 @@ void Application::reopen_recently_closed_tab(BrowserWindow* target_window, Optio
             Optional<int> pinned_index;
             if (restoring_to_source_window && unit.source_tab_index.has_value())
                 pinned_index = static_cast<int>(*unit.source_tab_index);
-            window->pin_tab(tab, pinned_index, closed_tab.active_url);
+            window->pin_tab(tab, pinned_index, URL::Parser::basic_parse(closed_tab.pin_home_url).value_or(closed_tab.active_url));
         }
         ++restored_tab_index;
     }

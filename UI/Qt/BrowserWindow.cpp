@@ -13,6 +13,7 @@
 #include <AK/StdLibExtras.h>
 #include <AK/TypeCasts.h>
 #include <LibCore/BrowserVersion.h>
+#include <LibURL/Parser.h>
 #include <LibCore/EventLoop.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/HistoryStore.h>
@@ -884,6 +885,8 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
         };
         auto* tab = new Tab(this, AK::move(deferred_tab));
         tab->set_pinned(restored.pinned);
+        if (restored.pinned)
+            tab->pin_home = URL::Parser::basic_parse(restored.pin_home_url).value_or(restored.url);
         tab->set_space_name(space);
         m_tabs_container->insert_tab(index, tab, tab->title());
         initialize_tab(tab);
@@ -896,6 +899,8 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
     tab->set_session_tab_id(restored.tab_id);
     tab->set_space_name(space);
     tab->set_pinned(restored.pinned);
+    if (restored.pinned)
+        tab->pin_home = URL::Parser::basic_parse(restored.pin_home_url).value_or(restored.url);
 
     if (!m_current_tab)
         set_current_tab(tab);
@@ -1461,7 +1466,7 @@ void BrowserWindow::pinned_state_changed(Tab& tab)
 {
     // A move already reported the new order, through the tab bar's tabMoved signal.
     if (auto session_tab_id = tab.session_tab_id(); session_tab_id.has_value()) {
-        if (auto result = session().tab_pinned_changed(*session_tab_id, tab.is_pinned()); result.is_error())
+        if (auto result = session().tab_pinned_changed(*session_tab_id, tab.is_pinned(), tab.pin_home); result.is_error())
             dbgln("Unable to record the tab's pin in the session store: {}", result.error());
     }
     update_tab_close_button(tab);

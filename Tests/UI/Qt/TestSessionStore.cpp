@@ -418,7 +418,7 @@ TEST_CASE(a_pin_writes_through_and_survives_restart)
         auto pinned = open_tab(*store, window, "https://a.example/"sv);
         (void)open_tab(*store, window, "https://b.example/"sv);
 
-        TRY_OR_FAIL(store->tab_pinned_changed(pinned, true));
+        TRY_OR_FAIL(store->tab_pinned_changed(pinned, true, parse_url("https://home.example/"sv)));
 
         // No flush: The pin itself must already be in the row.
         EXPECT_EQ(select_i64(*database, MUST(String::formatted("SELECT pinned FROM SessionTabs WHERE id = {};", pinned))), 1);
@@ -429,6 +429,7 @@ TEST_CASE(a_pin_writes_through_and_survives_restart)
     EXPECT(unit.has_value());
     EXPECT_EQ(unit->tabs.size(), 2uz);
     EXPECT(unit->tabs[0].pinned);
+    EXPECT_EQ(unit->tabs[0].pin_home_url, "https://home.example/"sv);
     EXPECT(!unit->tabs[1].pinned);
 }
 
