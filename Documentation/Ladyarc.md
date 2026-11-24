@@ -23,7 +23,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 
 - [x] Choose another open tab from Split View in the browser menu to place it beside the current page. Click a pane to direct the address bar and commands to it. End Split View returns to one page.
 - [x] Command/Ctrl+T searches open tabs, bookmark titles and URLs, browsing history, and browser commands. Arrow keys select a result. Enter opens it and Escape dismisses the palette. Private windows omit profile history.
-- [ ] Route external links to a Space or profile by rule.
+- [x] Spaces → External Link Routing assigns links for the current hostname to a named Space. External web links with no matching rule open in Little Arc. Private windows do not write routing rules.
 - [ ] Save per-site styles, scripts or element customizations.
 - [ ] Start picture-in-picture automatically on tab switch. The browser already has a picture-in-picture window.
 - [ ] Control background playback from a sidebar mini player.

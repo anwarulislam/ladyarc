@@ -140,6 +140,7 @@ public:
 
     void open_new_tab();
     void open_new_window(WebView::IsPrivate);
+    BrowserWindow& open_external_web_link(URL::URL const&);
     BrowserWindow& open_little_window(URL::URL const&, WebView::IsPrivate = WebView::IsPrivate::No);
     enum class ReopenClosedWindow {
         InNewWindow,

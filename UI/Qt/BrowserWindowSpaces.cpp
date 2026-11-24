@@ -25,6 +25,11 @@
 
 namespace Ladybird {
 
+QString BrowserWindow::external_route_key(URL::URL const& url)
+{
+    return "external-routes/" + QString::fromLatin1(QUrl::toPercentEncoding(qstring_from_ak_string(url.serialized_host())));
+}
+
 void BrowserWindow::initialize_spaces()
 {
     if (m_is_popup_window == IsPopupWindow::Yes)
@@ -71,6 +76,29 @@ void BrowserWindow::initialize_spaces()
     connect(reset, &QAction::triggered, this, [this] { set_space_color({}); });
     if (!m_space_sidebar && space_color().isValid())
         create_space_sidebar();
+    auto* routes = menu->addMenu("External Link Routing");
+    connect(routes, &QMenu::aboutToShow, this, [this, routes] {
+        routes->clear();
+        if (!current_tab() || is_private() == WebView::IsPrivate::Yes)
+            return;
+        auto url = current_tab()->url();
+        if (!url.scheme().is_one_of("http"sv, "https"sv) || !url.host().has_value())
+            return;
+        auto host = qstring_from_ak_string(url.serialized_host());
+        auto key = external_route_key(url);
+        auto target = Application::desktop_preferences().value(key).toString();
+        routes->addSection("Links to " + host);
+        for (auto const& name : m_spaces) {
+            auto* action = routes->addAction(name);
+            action->setCheckable(true);
+            action->setChecked(name == target);
+            connect(action, &QAction::triggered, this, [key, name] { Application::desktop_preferences().setValue(key, name); });
+        }
+        routes->addSeparator();
+        auto* remove = routes->addAction("Use Little Arc");
+        remove->setEnabled(!target.isEmpty());
+        connect(remove, &QAction::triggered, this, [key] { Application::desktop_preferences().remove(key); });
+    });
     auto* previous = menu->addAction("Previous Space");
     auto* next = menu->addAction("Next Space");
     previous->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_BracketLeft));

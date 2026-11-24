@@ -83,7 +83,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 
         app->on_open_file = [&](auto const& file_url) {
             if (file_url.scheme().is_one_of("http"sv, "https"sv)) {
-                app->open_little_window(file_url);
+                app->open_external_web_link(file_url);
                 return;
             }
             if (auto* window = app->non_private_window_if_any()) {
@@ -105,7 +105,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         // NB: URLs from outside the browser, such as a link clicked in another app, never open in a private window.
         app->on_new_tab = [&](auto const& urls) {
             if (urls.size() == 1 && urls.first().scheme().is_one_of("http"sv, "https"sv)) {
-                app->open_little_window(urls.first());
+                app->open_external_web_link(urls.first());
                 return;
             }
             auto* non_private_window = app->non_private_window_if_any();
@@ -139,12 +139,12 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             auto follows_restart = Ladybird::Application::session_store(WebView::IsPrivate::No).follows_restart();
             auto restored_everything = app->launch_restore_policy() == Ladybird::SessionLaunchPolicy::Everything;
             if (!follows_restart && little_launch)
-                app->open_little_window(browser_options.urls.first());
+                app->open_external_web_link(browser_options.urls.first());
             else if (!follows_restart && (!restored_everything || !browser_options.raw_urls.is_empty()))
                 app->open_startup_tabs(*restored_window, browser_options.urls);
             app->offer_to_restore_unexpectedly_closed_tabs(*restored_window);
         } else {
-            auto& window = little_launch ? app->open_little_window(browser_options.urls.first()) : app->new_window(browser_options.urls, configuration);
+            auto& window = little_launch ? app->open_external_web_link(browser_options.urls.first()) : app->new_window(browser_options.urls, configuration);
             window.setWindowTitle(BROWSER_PRODUCT_NAME);
             app->offer_to_restore_unexpectedly_closed_tabs(window);
         }

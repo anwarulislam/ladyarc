@@ -1862,6 +1862,30 @@ void Application::open_new_tab()
     m_active_window->show_command_bar();
 }
 
+BrowserWindow& Application::open_external_web_link(URL::URL const& url)
+{
+    auto space = desktop_preferences().value(BrowserWindow::external_route_key(url)).toString();
+    if (space.isEmpty())
+        return open_little_window(url);
+
+    auto* target = m_active_window;
+    if (!target || !target->accepts_external_route()) {
+        target = nullptr;
+        for (auto* widget : QApplication::topLevelWidgets()) {
+            if (auto* window = qobject_cast<BrowserWindow*>(widget); window && window->isVisible() && window->accepts_external_route()) {
+                target = window;
+                break;
+            }
+        }
+    }
+    if (!target)
+        target = &new_window({}, configuration_for_new_window());
+    auto& tab = target->new_tab_from_url(url, Web::HTML::ActivateTab::Yes, BrowserWindow::TabLocation::end());
+    target->assign_space(tab, space);
+    target->bring_to_front();
+    return *target;
+}
+
 BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsPrivate is_private)
 {
     QPointer<BrowserWindow> source = m_active_window;

@@ -241,6 +241,8 @@ public:
 
     void update_tabs_display();
     void assign_space(Tab&, QString const&);
+    static QString external_route_key(URL::URL const&);
+    bool accepts_external_route() const { return is_private() == WebView::IsPrivate::No && m_is_popup_window == IsPopupWindow::No; }
     void set_compact_chrome();
     void peek_at_link(Web::HTML::PreparedNavigationDescriptor const&);
 
