@@ -370,6 +370,17 @@ void ConnectionFromUI::system_time_zone_changed()
     });
 }
 
+void ConnectionFromUI::view_toggle_media_playback(u64 view_id)
+{
+    if (!find_view(view_id))
+        return;
+    auto& coordinator = Application::the().media_session_coordinator();
+    if (auto state = coordinator.state_for_view(view_id); state.has_value()) {
+        auto playing = state->playback_state == Web::Bindings::MediaSessionPlaybackState::Playing;
+        coordinator.handle_action_for_view(view_id, playing ? Web::Bindings::MediaSessionAction::Pause : Web::Bindings::MediaSessionAction::Play);
+    }
+}
+
 void ConnectionFromUI::media_session_action(Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek)
 {
     Application::the().media_session_coordinator().handle_action(action, seek_offset, seek_time, fast_seek);

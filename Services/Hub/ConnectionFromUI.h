@@ -127,6 +127,7 @@ private:
     virtual void notification_failed(u64 id) override;
     virtual void notification_clicked(u64 id) override;
     virtual void notification_closed(u64 id, bool by_user) override;
+    virtual void view_toggle_media_playback(u64 view_id) override;
     virtual void media_session_action(Web::Bindings::MediaSessionAction, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) override;
     virtual void geolocation_position(u64 id, Core::GeolocationCoordinates coordinates) override;
     virtual void geolocation_error(u64 id, Core::GeolocationError error) override;

@@ -1114,6 +1114,7 @@ void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, 
         set_current_tab(m_tabs_container->count() > 0 ? m_tabs_container->tab(m_tabs_container->current_index()) : nullptr);
 
     target_window.adopt_tab(*tab, target_index);
+    refresh_mini_player();
     refresh_space_sidebar();
     sync_session_tab_order();
 
@@ -1199,6 +1200,7 @@ void BrowserWindow::set_current_tab(Tab* tab)
 
     reposition_page_cards();
     Application::the().report_active_view();
+    refresh_mini_player();
 }
 
 void BrowserWindow::show_page_card(PageCardSlot slot, QString const& title, QString const& text, Vector<PageCard::Button> buttons)
@@ -1292,6 +1294,7 @@ bool BrowserWindow::close_tab(int index, SessionStore::KeepForReopening keep_for
     }
     Application::the().update_reopen_recently_closed_actions();
     tab->deleteLater();
+    refresh_mini_player();
     refresh_space_sidebar();
 
     if (m_tabs_container->count() == 0)
@@ -1683,6 +1686,7 @@ void BrowserWindow::set_always_on_top(bool always_on_top)
 
 void BrowserWindow::tab_audio_state_changed(int index)
 {
+    refresh_mini_player();
     if (index < 0)
         return;
     update_tab_audio_button(*m_tabs_container->tab(index));

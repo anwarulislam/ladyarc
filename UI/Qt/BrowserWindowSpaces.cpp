@@ -6,6 +6,7 @@
 #include <UI/Qt/Application.h>
 #include <UI/Qt/BookmarkStore.h>
 #include <UI/Qt/BrowserWindow.h>
+#include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/StringUtils.h>
@@ -252,6 +253,13 @@ void BrowserWindow::create_space_sidebar()
     m_space_tab_list->setAccessibleName("Tabs in this Space");
     m_space_tab_list->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_space_tab_list);
+    m_media_play_pause = new QPushButton(panel);
+    m_media_play_pause->hide();
+    layout->addWidget(m_media_play_pause);
+    connect(m_media_play_pause, &QPushButton::clicked, this, [this] {
+        if (m_media_tab && tab_index(m_media_tab) >= 0 && m_media_tab->is_loaded())
+            HubConnection::the().async_view_toggle_media_playback(m_media_tab->view().view_id());
+    });
     auto* add = new QPushButton("New Tab", panel);
     layout->addWidget(add);
     connect(add, &QPushButton::clicked, this, &BrowserWindow::open_new_tab);
@@ -301,6 +309,28 @@ void BrowserWindow::set_space_color(QColor color)
         if (auto* window = qobject_cast<BrowserWindow*>(widget))
             window->refresh_space_sidebar();
     }
+}
+
+void BrowserWindow::refresh_mini_player()
+{
+    if (m_is_popup_window == IsPopupWindow::Yes)
+        return;
+    if (m_media_tab == current_tab() || (m_media_tab && (tab_index(m_media_tab) < 0 || !m_media_tab->is_loaded())))
+        m_media_tab.clear();
+    for (int i = 0; i < tab_count(); ++i) {
+        auto* tab = tab_at(i);
+        if (tab != current_tab() && tab->is_loaded() && tab->view().tab_indicator_visible(WebView::TabIndicator::PlayingAudio)) {
+            m_media_tab = tab;
+            break;
+        }
+    }
+    if (m_media_tab && !m_space_sidebar)
+        create_space_sidebar();
+    if (!m_media_play_pause)
+        return;
+    m_media_play_pause->setVisible(m_media_tab);
+    if (m_media_tab)
+        m_media_play_pause->setText("Play / Pause · " + m_media_tab->title());
 }
 
 void BrowserWindow::refresh_favorites()

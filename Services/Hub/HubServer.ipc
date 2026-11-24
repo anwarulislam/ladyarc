@@ -211,6 +211,7 @@ endpoint HubServer
     notification_failed(u64 id) =|
     notification_clicked(u64 id) =|
     notification_closed(u64 id, bool by_user) =|
+    view_toggle_media_playback(u64 view_id) =|
     media_session_action(Web::Bindings::MediaSessionAction action, Optional<double> seek_offset, Optional<double> seek_time, Optional<bool> fast_seek) =|
     geolocation_position(u64 id, Core::GeolocationCoordinates coordinates) =|
     geolocation_error(u64 id, Core::GeolocationError error) =|

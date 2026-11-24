@@ -322,6 +322,7 @@ private:
     void cycle_space(int delta);
     void refresh_space_sidebar();
     void refresh_favorites();
+    void refresh_mini_player();
     QColor space_color() const;
     void set_space_color(QColor);
     void show_tab_in_space(int position);
@@ -373,6 +374,8 @@ private:
     QHash<QString, QColor> m_private_space_colors;
     QDockWidget* m_space_sidebar { nullptr };
     QComboBox* m_space_picker { nullptr };
+    QPointer<Tab> m_media_tab;
+    QPushButton* m_media_play_pause { nullptr };
     QListWidget* m_favorites_list { nullptr };
     QListWidget* m_space_tab_list { nullptr };
     QList<QPointer<Tab>> m_listed_space_tabs;
