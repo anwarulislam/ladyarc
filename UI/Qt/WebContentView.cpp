@@ -1026,6 +1026,17 @@ void WebContentView::wheelEvent(QWheelEvent* event)
         return;
     }
 
+    if (!m_screenshot_selection_overlay && !m_compositor_layer_picker.has_value() && event->modifiers() == Qt::NoModifier && wheel_event_scrolls_continuously(*event)) {
+        auto delta = wheel_delta_from_qt_event(*event).delta;
+        auto result = m_history_swipe.update(*event, width(), delta, can_navigate_back(), can_navigate_forward());
+        if (result != HistorySwipe::Result::Pass) {
+            if (result == HistorySwipe::Result::Back || result == HistorySwipe::Result::Forward)
+                traverse_the_history_by_delta(result == HistorySwipe::Result::Back ? -1 : 1);
+            event->accept();
+            return;
+        }
+    }
+
     // The momentum that remains of a scroll on a touchpad goes on moving the page by a pixel or so for a while after it
     // looks to have stopped, which a screenshot selection does not wait for.
     auto is_momentum_running_out = first_is_one_of(event->phase(), Qt::ScrollMomentum, Qt::ScrollEnd) && event->pixelDelta().manhattanLength() <= 1;

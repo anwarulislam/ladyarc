@@ -30,7 +30,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [x] Hold Control and press Tab to visit tabs in recently used order in the current Space. Shift reverses direction. Releasing Control remembers the selection. The Next and Previous Tab menu items still follow strip order.
 - [x] Copy Clean Link removes common campaign and click identifiers with Command+Shift+C or Ctrl+Shift+C. DevTools remains available on F12 and Command/Ctrl+Shift+I.
 - [x] Capture Element in the page context menu saves the element under the pointer. The screenshot overlay already supports regions and full pages.
-- [ ] Swipe over a page to navigate backward or forward in its history.
+- [x] Swipe inward with two fingers at the left or right edge of a page to go back or forward. Horizontal scrolling in the middle of the page stays available.
 - [x] System Screenshots → Choose Screenshot Folder adds the five most recent matching images to the downloads popover, where they can be dragged into a page or another app. Private windows omit them.
 - [x] Drag a completed file from the toolbar downloads popover onto a file drop target or into another application.
 

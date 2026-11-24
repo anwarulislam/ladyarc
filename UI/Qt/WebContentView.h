@@ -29,6 +29,7 @@
 #include <LibWebView/WebCompatReport.h>
 #include <UI/Qt/BackingStoreRelease.h>
 #include <UI/Qt/CompositorLayerPicker.h>
+#include <UI/Qt/HistorySwipe.h>
 #include <UI/Qt/RemoteView.h>
 #include <UI/Qt/ScreenshotSelectionOverlay.h>
 
@@ -367,6 +368,7 @@ private:
         Began,
         Zooming,
     };
+    HistorySwipe m_history_swipe;
     NativeGestureState m_native_gesture_state { NativeGestureState::None };
 
 #ifdef AK_OS_MACOS
