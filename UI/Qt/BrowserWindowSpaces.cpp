@@ -510,11 +510,15 @@ void BrowserWindow::refresh_mini_player()
 {
     if (m_is_popup_window == IsPopupWindow::Yes)
         return;
-    if (m_media_tab == current_tab() || (m_media_tab && (tab_index(m_media_tab) < 0 || !m_media_tab->is_loaded())))
+    auto profile = profile_for_space(m_active_space);
+    auto can_control = [&](Tab* tab) {
+        return tab && tab != current_tab() && tab->is_loaded() && profile_for_space(tab->space_name()) == profile;
+    };
+    if (m_media_tab && (tab_index(m_media_tab) < 0 || !can_control(m_media_tab)))
         m_media_tab.clear();
     for (int i = 0; i < tab_count(); ++i) {
         auto* tab = tab_at(i);
-        if (tab != current_tab() && tab->is_loaded() && tab->view().tab_indicator_visible(WebView::TabIndicator::PlayingAudio)) {
+        if (can_control(tab) && tab->view().tab_indicator_visible(WebView::TabIndicator::PlayingAudio)) {
             m_media_tab = tab;
             break;
         }
