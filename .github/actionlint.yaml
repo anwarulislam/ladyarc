@@ -1,6 +1,7 @@
 self-hosted-runner:
   labels:
     - blacksmith-*
+    - xcode-27
 paths:
   .github/workflows/backport.yml:
     ignore:
