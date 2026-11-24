@@ -636,7 +636,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
         m_color_picker_dialog = new QColorDialog(QColor(current_color.red(), current_color.green(), current_color.blue()), &view());
 
         auto& dialog = *m_color_picker_dialog;
-        dialog.setWindowTitle("Ladybird");
+        dialog.setWindowTitle("Ladyarc");
         dialog.setOption(QColorDialog::ShowAlphaChannel, false);
         QObject::connect(&dialog, &QColorDialog::currentColorChanged, this, [this](QColor const& color) {
             view().color_picker_update(Color(color.red(), color.green(), color.blue()), Web::HTML::ColorPickerUpdateState::Update);
@@ -698,7 +698,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
                                                     : QStringLiteral("HH:mm");
         auto* dialog = new QDialog(&view());
         m_date_picker_dialog = dialog;
-        dialog->setWindowTitle("Ladybird");
+        dialog->setWindowTitle("Ladyarc");
         auto* layout = new QVBoxLayout(dialog);
 
         QCalendarWidget* calendar = nullptr;

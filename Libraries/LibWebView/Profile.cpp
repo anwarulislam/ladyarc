@@ -17,7 +17,7 @@ namespace WebView {
 
 static ByteString profile_path(StringView root, StringView identifier)
 {
-    return LexicalPath::join(root, "Ladybird"sv, "Profiles"sv, identifier).string();
+    return LexicalPath::join(root, "Ladyarc"sv, "Profiles"sv, identifier).string();
 }
 
 static ErrorOr<void> create_profile_directories(ProfilePaths const& paths)
@@ -124,7 +124,7 @@ ErrorOr<Profile> Profile::create(ProfileSelection const& selection, ProfileRoots
     if (selection.temporary) {
         TRY(Core::Directory::create(roots.temporary, Core::Directory::CreateDirectories::Yes, 0700));
 
-        auto root = LexicalPath::join(roots.temporary, ByteString::formatted("ladybird-profile-{:016x}-{:016x}", get_random<u64>(), get_random<u64>())).string();
+        auto root = LexicalPath::join(roots.temporary, ByteString::formatted("ladyarc-profile-{:016x}-{:016x}", get_random<u64>(), get_random<u64>())).string();
         TRY(Core::Directory::create(root, Core::Directory::CreateDirectories::Yes, 0700));
         root = TRY(FileSystem::real_path(root));
 
@@ -161,11 +161,11 @@ ErrorOr<Profile> Profile::create(ProfileSelection const& selection, ProfileRoots
 ErrorOr<Profile> Profile::create_legacy(ProfileRoots const& roots)
 {
     ProfilePaths paths {
-        .config = LexicalPath::join(roots.config, "Ladybird"sv).string(),
-        .data = LexicalPath::join(roots.data, "Ladybird"sv).string(),
-        .cache = LexicalPath::join(roots.cache, "Ladybird"sv).string(),
+        .config = LexicalPath::join(roots.config, "Ladyarc"sv).string(),
+        .data = LexicalPath::join(roots.data, "Ladyarc"sv).string(),
+        .cache = LexicalPath::join(roots.cache, "Ladyarc"sv).string(),
         .runtime = roots.runtime,
-        .identity = LexicalPath::join(roots.data, "Ladybird"sv).string(),
+        .identity = LexicalPath::join(roots.data, "Ladyarc"sv).string(),
     };
 
     TRY(create_profile_directories(paths));

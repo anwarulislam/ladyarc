@@ -1,3 +1,3 @@
 [D-BUS Service]
-Name=org.ladybird.Ladybird
+Name=io.github.anwarulislam.Ladyarc
 Exec=Ladybird

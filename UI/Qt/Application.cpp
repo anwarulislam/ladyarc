@@ -821,8 +821,8 @@ Hub::UIInfo Application::current_ui_info() const
 {
     QMessageBox dialog;
     dialog.setIcon(QMessageBox::Warning);
-    dialog.setText(QObject::tr("Ladybird is already running, but it is not responding."));
-    dialog.setInformativeText(QObject::tr("To open Ladybird with this profile, the Ladybird that is running must be closed first. What its pages have not saved will be lost."));
+    dialog.setText(QObject::tr("Ladyarc is already running, but it is not responding."));
+    dialog.setInformativeText(QObject::tr("To open Ladyarc with this profile, the Ladyarc that is running must be closed first. What its pages have not saved will be lost."));
     auto* close_button = dialog.addButton(QObject::tr("Close Ladybird"), QMessageBox::DestructiveRole);
     dialog.setDefaultButton(dialog.addButton(QMessageBox::Cancel));
     // NB: Nothing else of this launch is on the screen yet, so the question has to be where the user sees it.
@@ -1111,7 +1111,7 @@ Optional<int> Application::exit_status_if_done() const
         return {};
     if (hub().browser_is_unresponsive()) {
         // FIXME: Offer to end the unresponsive browser, as is done when the Hub is in its own process.
-        warnln("Ladybird is already running with this profile, but it is not responding");
+        warnln("Ladyarc is already running with this profile, but it is not responding");
         return WebView::BrowserProcess::unresponsive_browser_exit_status;
     }
     outln("Opening in existing process");
@@ -1375,12 +1375,13 @@ void Application::will_create_event_loop(Main::Arguments& arguments)
     qputenv("NO_AT_BRIDGE", "1");
 #endif
     m_application = make<LadybirdQApplication>(arguments);
+    QGuiApplication::setApplicationDisplayName(QStringLiteral("Ladyarc"));
 #if defined(AK_OS_MACOS)
     // NB: Qt owns its converters, and deletes them along with the QApplication.
     new PNGMimeConverter;
 #endif
 #if defined(AK_OS_LINUX)
-    QGuiApplication::setDesktopFileName(QStringLiteral("org.ladybird.Ladybird"));
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.anwarulislam.Ladyarc"));
     Ladybird::clip_translucent_windows_that_cannot_blend();
 #endif
 #if !defined(Q_OS_MACOS) && !defined(Q_OS_WIN)
@@ -2289,7 +2290,7 @@ bool Application::confirm_stop_active_downloads(QWidget* parent)
 
     if (downloader.has_unresumable_downloads()) {
         QMessageBox dialog(parent ? parent : active_window_if_any());
-        dialog.setWindowTitle("Ladybird");
+        dialog.setWindowTitle("Ladyarc");
         dialog.setIcon(QMessageBox::Warning);
         dialog.setText("Downloads are still in progress.");
         dialog.setInformativeText("Quitting will cancel downloads that cannot be resumed.");
@@ -2617,7 +2618,7 @@ static QMessageBox* create_message_box(QMessageBox::Icon icon, StringView text, 
 {
     auto* dialog = new QMessageBox(parent);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setWindowTitle("Ladybird");
+    dialog->setWindowTitle("Ladyarc");
     dialog->setIcon(icon);
     dialog->setTextFormat(Qt::PlainText);
     dialog->setText(qstring_from_ak_string(text));

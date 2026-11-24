@@ -329,21 +329,25 @@ if (ENABLE_INSTALL_FREEDESKTOP_FILES)
     install(FILES
         "${FREEDESKTOP_RESOURCE_DIR}/org.ladybird.Ladybird.svg"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps"
+        RENAME io.github.anwarulislam.Ladyarc.svg
         COMPONENT ladybird_Freedesktop
     )
     install(FILES
         "${FREEDESKTOP_RESOURCE_DIR}/org.ladybird.Ladybird.desktop"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+        RENAME io.github.anwarulislam.Ladyarc.desktop
         COMPONENT ladybird_Freedesktop
     )
     install(FILES
         "${FREEDESKTOP_RESOURCE_DIR}/org.ladybird.Ladybird.service"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/services"
+        RENAME io.github.anwarulislam.Ladyarc.service
         COMPONENT ladybird_Freedesktop
     )
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/org.ladybird.Ladybird.metainfo.xml"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+        RENAME io.github.anwarulislam.Ladyarc.metainfo.xml
         COMPONENT ladybird_Freedesktop
     )
 endif()
@@ -359,30 +363,34 @@ if (LINUX)
         file(WRITE "${system_integration_dir}/${file}" "${contents}")
     endforeach()
     file(MAKE_DIRECTORY "${system_integration_dir}/bin")
-    file(CREATE_LINK "${packaged_ladybird}" "${system_integration_dir}/bin/ladybird" SYMBOLIC)
+    file(CREATE_LINK "${packaged_ladybird}" "${system_integration_dir}/bin/ladyarc" SYMBOLIC)
 
-    install(FILES "${system_integration_dir}/bin/ladybird"
+    install(FILES "${system_integration_dir}/bin/ladyarc"
         DESTINATION /usr/bin
         COMPONENT ladybird_SystemIntegration
         EXCLUDE_FROM_ALL
     )
     install(FILES "${system_integration_dir}/org.ladybird.Ladybird.desktop"
         DESTINATION /usr/share/applications
+        RENAME io.github.anwarulislam.Ladyarc.desktop
         COMPONENT ladybird_SystemIntegration
         EXCLUDE_FROM_ALL
     )
     install(FILES "${system_integration_dir}/org.ladybird.Ladybird.service"
         DESTINATION /usr/share/dbus-1/services
+        RENAME io.github.anwarulislam.Ladyarc.service
         COMPONENT ladybird_SystemIntegration
         EXCLUDE_FROM_ALL
     )
     install(FILES "${FREEDESKTOP_RESOURCE_DIR}/org.ladybird.Ladybird.svg"
         DESTINATION /usr/share/icons/hicolor/scalable/apps
+        RENAME io.github.anwarulislam.Ladyarc.svg
         COMPONENT ladybird_SystemIntegration
         EXCLUDE_FROM_ALL
     )
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.ladybird.Ladybird.metainfo.xml"
         DESTINATION /usr/share/metainfo
+        RENAME io.github.anwarulislam.Ladyarc.metainfo.xml
         COMPONENT ladybird_SystemIntegration
         EXCLUDE_FROM_ALL
     )

@@ -1,12 +1,12 @@
 [Desktop Entry]
-Name=Ladybird
+Name=Ladyarc
 GenericName=Web Browser
 GenericName[eo]=Retumilo
 GenericName[fr]=Navigateur Web
 GenericName[ru]=Веб-браузер
 GenericName[sv]=Webbläsare
 Exec=Ladybird %U
-Icon=org.ladybird.Ladybird
+Icon=io.github.anwarulislam.Ladyarc
 DBusActivatable=false
 Type=Application
 Categories=Network;WebBrowser;

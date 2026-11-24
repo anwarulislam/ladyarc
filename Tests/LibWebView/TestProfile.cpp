@@ -81,13 +81,13 @@ TEST_CASE(named_and_default_layouts)
 
     auto named = MUST(WebView::Profile::create({ .name = "work" }, profile_roots));
     EXPECT_EQ(named.identifier(), "work"sv);
-    EXPECT_EQ(named.paths().config, LexicalPath::join(profile_roots.config, "Ladybird/Profiles/work"sv).string());
-    EXPECT_EQ(named.paths().data, LexicalPath::join(profile_roots.data, "Ladybird/Profiles/work"sv).string());
-    EXPECT_EQ(named.paths().cache, LexicalPath::join(profile_roots.cache, "Ladybird/Profiles/work"sv).string());
-    EXPECT_EQ(named.paths().runtime, LexicalPath::join(profile_roots.runtime, "Ladybird/Profiles/work"sv).string());
+    EXPECT_EQ(named.paths().config, LexicalPath::join(profile_roots.config, "Ladyarc/Profiles/work"sv).string());
+    EXPECT_EQ(named.paths().data, LexicalPath::join(profile_roots.data, "Ladyarc/Profiles/work"sv).string());
+    EXPECT_EQ(named.paths().cache, LexicalPath::join(profile_roots.cache, "Ladyarc/Profiles/work"sv).string());
+    EXPECT_EQ(named.paths().runtime, LexicalPath::join(profile_roots.runtime, "Ladyarc/Profiles/work"sv).string());
 
     auto default_profile = MUST(WebView::Profile::create({}, profile_roots));
-    auto default_profile_path = LexicalPath::join("Ladybird/Profiles"sv, WebView::DEFAULT_PROFILE_NAME).string();
+    auto default_profile_path = LexicalPath::join("Ladyarc/Profiles"sv, WebView::DEFAULT_PROFILE_NAME).string();
     EXPECT_EQ(default_profile.identifier(), WebView::DEFAULT_PROFILE_NAME);
     EXPECT_EQ(default_profile.paths().config, LexicalPath::join(profile_roots.config, default_profile_path).string());
     EXPECT_EQ(default_profile.paths().data, LexicalPath::join(profile_roots.data, default_profile_path).string());
@@ -124,9 +124,9 @@ TEST_CASE(legacy_layout)
     auto profile_roots = roots();
     auto profile = MUST(WebView::Profile::create_legacy(profile_roots));
     EXPECT_EQ(profile.identifier(), "legacy"sv);
-    EXPECT_EQ(profile.paths().config, LexicalPath::join(profile_roots.config, "Ladybird"sv).string());
-    EXPECT_EQ(profile.paths().data, LexicalPath::join(profile_roots.data, "Ladybird"sv).string());
-    EXPECT_EQ(profile.paths().cache, LexicalPath::join(profile_roots.cache, "Ladybird"sv).string());
+    EXPECT_EQ(profile.paths().config, LexicalPath::join(profile_roots.config, "Ladyarc"sv).string());
+    EXPECT_EQ(profile.paths().data, LexicalPath::join(profile_roots.data, "Ladyarc"sv).string());
+    EXPECT_EQ(profile.paths().cache, LexicalPath::join(profile_roots.cache, "Ladyarc"sv).string());
     EXPECT_EQ(profile.paths().runtime, profile_roots.runtime);
     remove_test_root();
 }
