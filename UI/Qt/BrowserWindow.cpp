@@ -51,6 +51,7 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMouseEvent>
@@ -501,6 +502,13 @@ void BrowserWindow::initialize_application_actions()
     addAction(application.open_next_tab_action());
     addAction(application.open_previous_tab_action());
     addAction(application.search_tabs_action());
+#if defined(AK_OS_MACOS)
+    constexpr auto switcher_modifier = Qt::META; // Physical Control on macOS.
+#else
+    constexpr auto switcher_modifier = Qt::CTRL;
+#endif
+    new QShortcut(QKeySequence(switcher_modifier | Qt::Key_Tab), this, [this] { cycle_recent_tab(1); });
+    new QShortcut(QKeySequence(switcher_modifier | Qt::SHIFT | Qt::Key_Tab), this, [this] { cycle_recent_tab(-1); });
     addAction(application.move_focus_action());
     addAction(application.open_file_action());
     addAction(application.open_settings_action());
@@ -1149,6 +1157,8 @@ void BrowserWindow::set_current_tab(Tab* tab)
 
     m_current_tab = tab;
     if (tab) {
+        m_recent_tabs.removeIf([&](auto const& entry) { return !entry || entry == tab; });
+        m_recent_tabs.prepend(tab);
         m_active_space = tab->space_name();
         m_last_space_tab.insert(m_active_space, tab);
     }
@@ -1724,6 +1734,33 @@ void BrowserWindow::move_focus_between_chrome_and_page()
         m_current_tab->view().setFocus(Qt::ShortcutFocusReason);
 }
 
+void BrowserWindow::cycle_recent_tab(int delta)
+{
+    auto eligible = [this](QPointer<Tab> const& tab) {
+        return tab && tab->space_name() == m_active_space && tab_index(tab) >= 0;
+    };
+    if (m_switcher_tabs.isEmpty()) {
+        for (auto const& tab : m_recent_tabs) {
+            if (eligible(tab))
+                m_switcher_tabs.append(tab);
+        }
+        // Tabs opened in the background have no activation history yet.
+        for (int i = 0; i < tab_count(); ++i) {
+            auto* tab = tab_at(i);
+            if (tab->space_name() == m_active_space && !m_switcher_tabs.contains(tab))
+                m_switcher_tabs.append(tab);
+        }
+    } else {
+        m_switcher_tabs.removeIf([&](auto const& tab) { return !eligible(tab); });
+    }
+    auto count = m_switcher_tabs.size();
+    if (count < 2)
+        return;
+    auto current = m_switcher_tabs.indexOf(current_tab());
+    auto next = (current + count + delta) % count;
+    activate_tab(tab_index(m_switcher_tabs.at(next)));
+}
+
 void BrowserWindow::open_next_tab()
 {
     cycle_visible_tab(1);
@@ -1879,6 +1916,16 @@ bool BrowserWindow::eventFilter(QObject* object, QEvent* event)
     auto* widget = as_if<QWidget>(object);
     if (!widget || widget->window() != this)
         return QMainWindow::eventFilter(object, event);
+    if (!m_switcher_tabs.isEmpty()) {
+#if defined(AK_OS_MACOS)
+        constexpr auto switcher_key = Qt::Key_Meta;
+#else
+        constexpr auto switcher_key = Qt::Key_Control;
+#endif
+        if ((event->type() == QEvent::KeyRelease && static_cast<QKeyEvent*>(event)->key() == switcher_key)
+            || event->type() == QEvent::WindowDeactivate || event->type() == QEvent::MouseButtonPress)
+            m_switcher_tabs.clear();
+    }
     if (m_space_sidebar && m_space_sidebar->isAncestorOf(widget) && event->type() == QEvent::Wheel
         && handle_space_swipe(*static_cast<QWheelEvent*>(event)))
         return true;

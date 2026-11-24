@@ -452,9 +452,7 @@ public:
         m_open_next_tab_action = make_action("Open &Next Tab");
         m_open_next_tab_action->setShortcuts({
             QKeySequence(Qt::CTRL | Qt::Key_PageDown),
-            QKeySequence(Qt::CTRL | Qt::Key_Tab),
 #if defined(AK_OS_MACOS)
-            QKeySequence(Qt::META | Qt::Key_Tab),
             QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_BracketRight),
             QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Right),
 #endif
@@ -467,9 +465,7 @@ public:
         m_open_previous_tab_action = make_action("Open &Previous Tab");
         m_open_previous_tab_action->setShortcuts({
             QKeySequence(Qt::CTRL | Qt::Key_PageUp),
-            QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_Tab),
 #if defined(AK_OS_MACOS)
-            QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Tab),
             QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_BracketLeft),
             QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Left),
 #endif

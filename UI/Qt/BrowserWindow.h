@@ -320,6 +320,7 @@ private:
     void refresh_space_sidebar();
     void show_tab_in_space(int position);
     void cycle_visible_tab(int delta);
+    void cycle_recent_tab(int delta);
     bool handle_space_swipe(QWheelEvent&);
     Qt::Edges resize_edges_for_position(QPoint const&) const;
     Optional<Qt::CursorShape> resize_cursor_for_edges(Qt::Edges) const;
@@ -367,6 +368,8 @@ private:
     QComboBox* m_space_picker { nullptr };
     QListWidget* m_space_tab_list { nullptr };
     QList<QPointer<Tab>> m_listed_space_tabs;
+    QList<QPointer<Tab>> m_recent_tabs;
+    QList<QPointer<Tab>> m_switcher_tabs;
     int m_space_swipe_distance { 0 };
     bool m_space_swipe_consumed { false };
     bool m_space_refresh_pending { false };
