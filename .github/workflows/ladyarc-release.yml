@@ -1,0 +1,121 @@
+name: Ladyarc browser build
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/ladyarc-release.yml'
+      - 'UI/**'
+      - 'Libraries/**'
+      - 'Services/**'
+      - 'Meta/**'
+      - 'CMakeLists.txt'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ladyarc-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux
+            arch: x86_64
+            runner: ubuntu-24.04
+            container: ghcr.io/ladybirdbrowser/ladybird-ci:2026.11.21
+          - platform: macOS
+            arch: arm64
+            runner: macos-26
+            container: null
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          os: ${{ matrix.platform }}
+          arch: ${{ matrix.arch }}
+          build_preset: Distribution
+          use_caches: 'false'
+
+      - name: Configure the browser
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          cmake --preset Distribution -B Build \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            "-DPython3_EXECUTABLE=$pythonLocation/bin/python" \
+            "-DLADYBIRD_VERSION=$version" -DBUILD_TESTING=OFF \
+            -DLADYBIRD_ENABLE_LTO=OFF -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF
+
+      - name: Build the browser and its services
+        run: cmake --build Build --parallel 3
+
+      - name: Package the browser
+        working-directory: Build
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          cpack -G TXZ -B packages -D CPACK_COMPONENTS_ALL=ladybird_Runtime \
+            -D CPACK_ARCHIVE_COMPRESSION_LEVEL=3
+          archives=(packages/ladybird-*.tar.xz)
+          test "${#archives[@]}" -eq 1 && test -s "${archives[0]}"
+          mkdir -p dist
+          mv "${archives[0]}" "dist/ladyarc-$PLATFORM-$ARCH.tar.xz"
+          tar -tf "dist/ladyarc-$PLATFORM-$ARCH.tar.xz" > package-contents.txt
+          grep -E '(^|/)(ladybird|Ladybird\.app/Contents/MacOS/[Ll]adybird)$' package-contents.txt
+          grep -E '(^|/)WebContent($|\.app/Contents/MacOS/WebContent$)' package-contents.txt
+
+      - name: Collect corresponding third-party sources
+        if: github.event_name == 'release'
+        working-directory: Build
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          cmake --build . --target third_party_sources
+          mv third-party-sources.tar "dist/ladyarc-$PLATFORM-$ARCH-third-party-sources.tar"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ladyarc-${{ matrix.platform }}-${{ matrix.arch }}
+          path: Build/dist/
+          compression-level: 0
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ladyarc-*
+          merge-multiple: true
+          path: dist
+
+      - name: Attach packages to the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber
