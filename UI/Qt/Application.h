@@ -177,6 +177,7 @@ public:
 
     BrowserWindow& active_window() const { return *m_active_window; }
     void set_active_window(BrowserWindow& window) { m_active_window = &window; }
+    bool has_picture_in_picture_window() const { return !m_picture_in_picture_windows.is_empty(); }
     BrowserWindow* active_window_if_any() const { return m_active_window; }
     BrowserWindow* non_private_window_if_any() const;
 
@@ -262,7 +263,6 @@ private:
     void open_url_in_new_tab_from_notification(URL::URL const&, Optional<u64> view_id, WebView::IsPrivate);
 
     virtual bool supports_picture_in_picture() const override { return true; }
-    bool has_picture_in_picture_window() const { return !m_picture_in_picture_windows.is_empty(); }
     void open_picture_in_picture_window(u64 view_id, u64 owner_view_id, Gfx::IntSize video_size);
     void hide_picture_in_picture_window(u64 view_id);
     void set_picture_in_picture_video_size(u64 view_id, Gfx::IntSize);
@@ -304,7 +304,7 @@ private:
     Web::Clipboard::SystemClipboardItem clipboard_item() const;
 
     virtual bool supports_system_menu_bar() const override;
-    virtual void show_keyboard_shortcuts() override;
+    void show_keyboard_shortcuts();
     virtual bool supports_vertical_tabs() const override { return true; }
     virtual bool supports_client_side_window_decorations() const override
     {

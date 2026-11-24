@@ -162,8 +162,8 @@ private:
             return;
         auto callback = m_callbacks.at(row);
         hide();
-        callback();
         deleteLater();
+        callback();
     }
 
     BrowserWindow& m_source;
