@@ -1,0 +1,74 @@
+name: Ladyarc desktop compile check
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'UI/Qt/**'
+      - 'Services/Hub/**'
+      - 'Libraries/LibWebView/**'
+      - 'Tests/UI/Qt/**'
+      - '.github/workflows/ladyarc-desktop-check.yml'
+  push:
+    branches: [dev]
+    paths: ['.github/workflows/ladyarc-desktop-check.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/ladybirdbrowser/ladybird-ci:2026.11.21
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          os: Linux
+          arch: x86_64
+          build_preset: Distribution
+          use_caches: 'false'
+
+      - uses: actions/cache/restore@v6
+        with:
+          path: Build/caches/vcpkg-binary-cache
+          key: ladyarc-v1-ubuntu-24.04-x86_64-${{ hashFiles('vcpkg*.json', 'Meta/CMake/vcpkg/**', '.github/actions/setup/action.yml') }}
+          restore-keys: ladyarc-v1-ubuntu-24.04-x86_64-
+
+      - name: Configure with the runner's system Qt
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          cmake --preset Distribution -B Build \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            "-DPython3_EXECUTABLE=$pythonLocation/bin/python" \
+            -DLADYBIRD_ENABLE_UPDATE_CHECK=OFF -DLADYBIRD_ENABLE_LTO=OFF \
+            -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF -DLADYBIRD_BUILD_QT=OFF \
+            -DBUILD_TESTING=ON -DBUILD_BROWSER_TESTS_ONLY=OFF
+
+      - name: Compile the frontend, Hub, profile implementation and regression tests
+        run: |
+          ninja -C Build -t targets all > "$RUNNER_TEMP/ninja-targets"
+          awk -F': ' '
+            /UI\/Qt\/CMakeFiles\/ladybird_impl\.dir\/.*\.o: CXX/ ||
+            /Services\/Hub\/CMakeFiles\/.*\.o: CXX/ ||
+            /Libraries\/LibWebView\/CMakeFiles\/LibWebView\.dir\/.*\.o: CXX/ ||
+            /\/(TestLadyarcSpaceProfiles|TestSessionStore|TestRequestServerClientSessions|TestRequestServerDiskCaches)\.cpp\.o: CXX/ {
+              print $1
+            }' "$RUNNER_TEMP/ninja-targets" > "$RUNNER_TEMP/desktop-objects"
+          grep -q '/BrowserWindow.cpp.o$' "$RUNNER_TEMP/desktop-objects"
+          grep -q '/TestLadyarcSpaceProfiles.cpp.o$' "$RUNNER_TEMP/desktop-objects"
+          xargs ninja -C Build -j3 -k12 < "$RUNNER_TEMP/desktop-objects"
