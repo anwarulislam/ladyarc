@@ -319,6 +319,8 @@ private:
     void cycle_space(int delta);
     void refresh_space_sidebar();
     void refresh_favorites();
+    QColor space_color() const;
+    void set_space_color(QColor);
     void show_tab_in_space(int position);
     void cycle_visible_tab(int delta);
     void cycle_recent_tab(int delta);
@@ -365,6 +367,7 @@ private:
     QStringList m_spaces { QStringLiteral("Main") };
     QString m_active_space { QStringLiteral("Main") };
     QHash<QString, QPointer<Tab>> m_last_space_tab;
+    QHash<QString, QColor> m_private_space_colors;
     QDockWidget* m_space_sidebar { nullptr };
     QComboBox* m_space_picker { nullptr };
     QListWidget* m_favorites_list { nullptr };

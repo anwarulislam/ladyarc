@@ -17,7 +17,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Pin tabs and organize them in nested Space folders. Window-level pinning already exists.
 - [ ] Subscribe a live folder to an external feed.
 - [ ] Archive inactive tabs automatically and recover them. The session store already supports reopening manually closed tabs.
-- [ ] Set a color or gradient per Space.
+- [x] Choose Space Color sets the sidebar color for a named Space. Use System Color follows the desktop theme again. Private windows keep their colors in memory.
 
 ## Browsing
 

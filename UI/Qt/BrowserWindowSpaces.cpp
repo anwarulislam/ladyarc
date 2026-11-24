@@ -10,6 +10,7 @@
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/StringUtils.h>
 
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QInputDialog>
@@ -59,6 +60,17 @@ void BrowserWindow::initialize_spaces()
         if (!name.isEmpty())
             switch_space(name);
     });
+    auto* color = menu->addAction("Choose Space Color…");
+    connect(color, &QAction::triggered, this, [this] {
+        auto initial = space_color();
+        auto selected = QColorDialog::getColor(initial.isValid() ? initial : palette().color(QPalette::Window), this, "Space Color");
+        if (selected.isValid())
+            set_space_color(selected);
+    });
+    auto* reset = menu->addAction("Use System Color");
+    connect(reset, &QAction::triggered, this, [this] { set_space_color({}); });
+    if (!m_space_sidebar && space_color().isValid())
+        create_space_sidebar();
     auto* previous = menu->addAction("Previous Space");
     auto* next = menu->addAction("Next Space");
     previous->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_BracketLeft));
@@ -235,6 +247,34 @@ void BrowserWindow::create_space_sidebar()
     refresh_space_sidebar();
 }
 
+static QString space_color_key(QString const& name)
+{
+    return "space-colors/" + QString::fromLatin1(QUrl::toPercentEncoding(name));
+}
+
+QColor BrowserWindow::space_color() const
+{
+    if (is_private() == WebView::IsPrivate::Yes)
+        return m_private_space_colors.value(m_active_space);
+    return QColor(Application::desktop_preferences().value(space_color_key(m_active_space)).toString());
+}
+
+void BrowserWindow::set_space_color(QColor color)
+{
+    if (is_private() == WebView::IsPrivate::Yes)
+        m_private_space_colors.insert(m_active_space, color);
+    else if (color.isValid())
+        Application::desktop_preferences().setValue(space_color_key(m_active_space), color.name());
+    else
+        Application::desktop_preferences().remove(space_color_key(m_active_space));
+    if (!m_space_sidebar && color.isValid())
+        create_space_sidebar();
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = qobject_cast<BrowserWindow*>(widget))
+            window->refresh_space_sidebar();
+    }
+}
+
 void BrowserWindow::refresh_favorites()
 {
     if (m_is_popup_window == IsPopupWindow::Yes)
@@ -289,6 +329,16 @@ void BrowserWindow::refresh_space_sidebar()
             m_space_picker->addItems(m_spaces);
         }
         m_space_picker->setCurrentText(m_active_space);
+        auto theme = QApplication::palette();
+        if (auto color = space_color(); color.isValid()) {
+            auto foreground = color.lightnessF() < 0.48 ? QColor(Qt::white) : QColor(Qt::black);
+            theme.setColor(QPalette::Window, color);
+            theme.setColor(QPalette::WindowText, foreground);
+            theme.setColor(QPalette::Base, color);
+            theme.setColor(QPalette::Text, foreground);
+        }
+        m_space_sidebar->widget()->setAutoFillBackground(true);
+        m_space_sidebar->widget()->setPalette(theme);
         m_space_tab_list->clear();
         m_listed_space_tabs.clear();
         for (int i = 0; i < tab_count(); ++i) {
