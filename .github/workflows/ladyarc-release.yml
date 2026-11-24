@@ -69,10 +69,14 @@ jobs:
           if [[ -n "$RELEASE_TAG" ]]; then
             source_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/ladyarc-$PLATFORM-$ARCH-third-party-sources.tar"
           fi
+          bundle_qt=OFF
+          if [[ "$PLATFORM" == Linux ]]; then
+            bundle_qt=ON
+          fi
           cmake --preset Distribution -B Build \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             "-DPython3_EXECUTABLE=$pythonLocation/bin/python" \
-            "-DLADYARC_SOURCE_BUNDLE_URL=$source_url" -DLADYBIRD_ENABLE_UPDATE_CHECK=OFF -DLADYBIRD_BASELINE_CPU_TARGET=ON \
+            "-DLADYBIRD_BUILD_QT=$bundle_qt" "-DLADYARC_SOURCE_BUNDLE_URL=$source_url" -DLADYBIRD_ENABLE_UPDATE_CHECK=OFF -DLADYBIRD_BASELINE_CPU_TARGET=ON \
             "-DLADYBIRD_VERSION=$version" -DBUILD_TESTING=OFF \
             -DLADYBIRD_ENABLE_LTO=OFF -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF
 
@@ -106,7 +110,7 @@ jobs:
       - name: Exercise shared and isolated Spaces in one window
         if: matrix.platform == 'Linux'
         run: |
-          cmake -S . -B Build -DBUILD_TESTING=ON
+          cmake -S . -B Build -DBUILD_TESTING=ON -DBUILD_BROWSER_TESTS_ONLY=OFF
           cmake --build Build --parallel 3 --target TestLadyarcSpaceProfiles
           ctest --test-dir Build --output-on-failure --no-tests=error -R '^test-ladyarc-space-profiles$'
 
