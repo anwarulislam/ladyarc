@@ -1224,6 +1224,12 @@ void ConnectionFromUI::view_download_url(u64 view_id, URL::URL url, bool prompt_
         view->download_url(url, prompt_for_path ? WebView::ViewImplementation::PromptForPath::Yes : WebView::ViewImplementation::PromptForPath::No, image_mime_type);
 }
 
+void ConnectionFromUI::view_capture_context_menu_element(u64 view_id)
+{
+    if (auto* view = find_view(view_id))
+        view->capture_context_menu_element();
+}
+
 void ConnectionFromUI::view_inspect_context_menu_element(u64 view_id)
 {
     if (auto* view = find_view(view_id))

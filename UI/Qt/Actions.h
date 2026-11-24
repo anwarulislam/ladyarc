@@ -52,6 +52,7 @@ enum class ActionID {
     LearnSpelling,
 
     TakeScreenshot,
+    CaptureElement,
     ReportWebsiteIssue,
 
     ToggleVerticalTabsExpanded,

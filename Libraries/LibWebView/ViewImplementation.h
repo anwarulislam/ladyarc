@@ -814,6 +814,7 @@ public:
 
     // What the application offers in a context menu, it asks the view to do.
     void inspect_context_menu_element();
+    void capture_context_menu_element();
     void replace_context_menu_misspelling(Utf16String const&);
     void ignore_misspelling(Utf16String const&);
     void learn_misspelling(Utf16String const&);
@@ -1052,6 +1053,7 @@ protected:
     Optional<u64> m_inspect_element_hit_test_request_id;
     Optional<Web::UniqueNodeID> m_inspect_element_node_id;
     bool m_inspect_element_activated_before_hit_test { false };
+    bool m_capture_element_after_hit_test { false };
 
     struct PendingInputEvent {
         Web::InputEvent event;

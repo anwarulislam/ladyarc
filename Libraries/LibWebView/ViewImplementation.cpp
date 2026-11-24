@@ -2424,6 +2424,8 @@ void ViewImplementation::did_receive_node_hit_test(u64 request_id, Web::UniqueNo
         if (node_id != 0)
             m_inspect_element_node_id = node_id;
 
+        if (exchange(m_capture_element_after_hit_test, false))
+            capture_context_menu_element();
         // The user chose Inspect Element before the hit test came back.
         if (exchange(m_inspect_element_activated_before_hit_test, false) && m_inspect_element_node_id.has_value() && on_inspect_element_request)
             on_inspect_element_request(*m_inspect_element_node_id);
@@ -5677,6 +5679,14 @@ void ViewImplementation::send_context_menu_request(ContextMenuRequest request, G
     did_request_context_menu(move(request));
 }
 
+void ViewImplementation::capture_context_menu_element()
+{
+    if (m_inspect_element_hit_test_request_id.has_value())
+        m_capture_element_after_hit_test = true;
+    else if (m_inspect_element_node_id.has_value())
+        report_saved_screenshot(*take_dom_node_screenshot(*m_inspect_element_node_id));
+}
+
 void ViewImplementation::inspect_context_menu_element()
 {
     if (m_inspect_element_hit_test_request_id.has_value())
@@ -5917,9 +5927,7 @@ void ViewImplementation::prepare_inspect_element(Gfx::IntPoint content_position)
     m_inspect_element_node_id.clear();
     m_inspect_element_hit_test_request_id.clear();
     m_inspect_element_activated_before_hit_test = false;
-
-    if (!on_inspect_element_request)
-        return;
+    m_capture_element_after_hit_test = false;
 
     auto request_id = m_next_node_hit_test_request_id++;
     m_inspect_element_hit_test_request_id = request_id;

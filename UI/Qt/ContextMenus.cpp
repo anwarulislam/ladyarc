@@ -199,9 +199,12 @@ static void add_copy_link_to_highlight_action(Menu& menu, RemoteView& view, Cont
 // still has the element the user clicked on.
 static void add_inspect_element_action(Menu& menu, u64 view_id, ContextMenuRequest const& request)
 {
+    menu.add_separator();
+    menu.add_action(Action::create("Capture Element"sv, ActionID::CaptureElement, [view_id] {
+        HubConnection::the().async_view_capture_context_menu_element(view_id);
+    }));
     if (!request.can_inspect_element)
         return;
-    menu.add_separator();
     menu.add_action(Action::create("Inspect Element"sv, ActionID::InspectElement, [view_id]() {
         HubConnection::the().async_view_inspect_context_menu_element(view_id);
     }));
