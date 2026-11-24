@@ -30,7 +30,7 @@
 #include <QPixmap>
 #include <QPointer>
 #include <QPushButton>
-#include <QStackedWidget>
+#include <UI/Qt/SplitPageStack.h>
 #include <QStaticText>
 #include <QTabBar>
 #include <QWidget>
@@ -316,6 +316,7 @@ public:
     LadybirdButton& ladybird_button() const { return *m_ladybird_button; }
 
     TabBar* tab_bar() const { return m_tab_bar; }
+    SplitPageStack& page_stack() const { return *m_stacked_widget; }
 
     // Whether a tab dragged to a position, in the given widget, lands in the tab strip rather than leaving it.
     bool tab_drop_area_contains(QWidget const&, QPoint position) const;
@@ -466,7 +467,7 @@ private:
     TabBar* m_tab_bar { nullptr };
     void size_hidden_pages_like_the_current_one();
 
-    QStackedWidget* m_stacked_widget { nullptr };
+    SplitPageStack* m_stacked_widget { nullptr };
     QToolButton* m_new_tab_button { nullptr };
     QToolButton* m_all_tabs_button { nullptr };
     ChromeHeaderButton* m_bookmarks_menu_button { nullptr };

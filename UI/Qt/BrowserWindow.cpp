@@ -406,6 +406,27 @@ BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow
     initialize_application_menu();
     initialize_ladybird_menu();
     initialize_spaces();
+    auto* split_menu = m_ladybird_menu->addMenu("Split View");
+    connect(split_menu, &QMenu::aboutToShow, this, [this, split_menu] {
+        split_menu->clear();
+        if (!current_tab())
+            return;
+        for (int i = 0; i < tab_count(); ++i) {
+            auto* other = tab_at(i);
+            if (other == current_tab() || other->space_name() != m_active_space)
+                continue;
+            auto* action = split_menu->addAction(other->tab_icon(), other->title());
+            connect(action, &QAction::triggered, this, [this, other = QPointer<Tab>(other)] {
+                if (other && tab_index(other) >= 0) {
+                    other->ensure_loaded();
+                    m_tabs_container->page_stack().split_with(other);
+                }
+            });
+        }
+        auto* end = split_menu->addAction("End Split View");
+        end->setEnabled(m_tabs_container->page_stack().contains_pane(current_tab()));
+        connect(end, &QAction::triggered, this, [this] { m_tabs_container->page_stack().end_split(); });
+    });
     initialize_window_context_menu();
     update_chrome_style();
 
@@ -1152,7 +1173,8 @@ void BrowserWindow::set_current_tab(Tab* tab)
     // What a tab's toolbar showed belongs to that tab, so it goes away with it however another tab is selected.
     if (m_current_tab) {
         m_current_tab->close_popovers();
-        m_current_tab->view().set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
+        if (!m_tabs_container->page_stack().contains_pane(m_current_tab))
+            m_current_tab->view().set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
         m_current_tab->view().set_current_tab_of_window(false);
     }
 
@@ -1287,7 +1309,7 @@ void BrowserWindow::discard_tab(Tab& tab)
     //     reviews a report would lose the report, which only its page holds, and one with an unfinished edit of its
     //     address would lose the edit.
     auto index = tab_index(&tab);
-    if (index < 0 || &tab == m_current_tab || tab.is_pinned() || tab.is_in_report_review() || tab.location_edit_with_parked_editing()) {
+    if (index < 0 || &tab == m_current_tab || m_tabs_container->page_stack().contains_pane(&tab) || tab.is_pinned() || tab.is_in_report_review() || tab.location_edit_with_parked_editing()) {
         tab.view().decline_discard();
         return;
     }
@@ -1837,6 +1859,7 @@ void BrowserWindow::place_popup_window(Web::HTML::WebViewHints const& hints, QSc
 
 void BrowserWindow::enter_fullscreen()
 {
+    m_tabs_container->page_stack().end_split();
     m_tabs_container->set_tab_bar_visible(false);
     if (m_space_sidebar)
         m_space_sidebar->hide();
@@ -1917,6 +1940,14 @@ bool BrowserWindow::eventFilter(QObject* object, QEvent* event)
     auto* widget = as_if<QWidget>(object);
     if (!widget || widget->window() != this)
         return QMainWindow::eventFilter(object, event);
+    if ((event->type() == QEvent::MouseButtonPress || event->type() == QEvent::FocusIn) && m_tabs_container->page_stack().contains_pane(current_tab())) {
+        for (auto* parent = widget; parent && parent != this; parent = parent->parentWidget()) {
+            if (auto* tab = qobject_cast<Tab*>(parent); tab && tab != current_tab() && m_tabs_container->page_stack().contains_pane(tab)) {
+                activate_tab(tab_index(tab));
+                break;
+            }
+        }
+    }
     if (!m_switcher_tabs.isEmpty()) {
 #if defined(AK_OS_MACOS)
         constexpr auto switcher_key = Qt::Key_Meta;

@@ -21,7 +21,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 
 ## Browsing
 
-- [ ] Display multiple tabs in split view.
+- [x] Choose another open tab from Split View in the browser menu to place it beside the current page. Click a pane to direct the address bar and commands to it. End Split View returns to one page.
 - [x] Command/Ctrl+T searches open tabs, bookmark titles and URLs, browsing history, and browser commands. Arrow keys select a result. Enter opens it and Escape dismisses the palette. Private windows omit profile history.
 - [ ] Route external links to a Space or profile by rule.
 - [ ] Save per-site styles, scripts or element customizations.

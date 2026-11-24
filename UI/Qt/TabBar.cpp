@@ -3178,7 +3178,12 @@ TabWidget::TabWidget(WebView::IsPrivate is_private, QWidget* parent)
 
     m_toolbar = new WindowToolbar(is_private, this);
     m_toolbar->installEventFilter(this);
-    m_stacked_widget = new QStackedWidget(this);
+    m_stacked_widget = new SplitPageStack(this);
+    m_stacked_widget->on_visibility_change = [](QWidget& widget, bool visible) {
+        auto& tab = as<Tab>(widget);
+        if (tab.is_loaded())
+            tab.view().set_system_visibility_state(visible ? Web::HTML::VisibilityState::Visible : Web::HTML::VisibilityState::Hidden);
+    };
     m_page_column = new QWidget(this);
     m_page_column->installEventFilter(this);
     m_toolbar_placeholder = new QWidget(m_page_column);
@@ -4321,7 +4326,7 @@ void TabWidget::size_hidden_pages_like_the_current_one()
     if (!current || !current->is_loaded())
         return;
     for (int i = 0; i < m_stacked_widget->count(); ++i) {
-        if (auto* page = as_if<Tab>(m_stacked_widget->widget(i)); page && page != current && page->is_loaded())
+        if (auto* page = as_if<Tab>(m_stacked_widget->widget(i)); page && page != current && !m_stacked_widget->contains_pane(page) && page->is_loaded())
             size_page_like(*page, *current);
     }
 }
