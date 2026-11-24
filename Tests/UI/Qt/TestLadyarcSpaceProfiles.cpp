@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QThread>
+#include <QWheelEvent>
 
 static bool wait_until(auto&& condition)
 {
@@ -66,19 +67,41 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     if (!wait_until([&] { return regular.title() == "empty/empty"; }))
         return Error::from_string_literal("The default Space read named profile data");
 
-    for (auto* picker : window.findChildren<QComboBox*>()) {
-        if (picker->accessibleName() == "Current Space") {
-            picker->setCurrentText("Work");
-            picker->textActivated("Work");
+    QComboBox* picker = nullptr;
+    for (auto* combo : window.findChildren<QComboBox*>()) {
+        if (combo->accessibleName() == "Current Space") {
+            picker = combo;
             break;
         }
     }
+    if (!picker || picker->count() < 3)
+        return Error::from_string_literal("Missing Spaces in the sidebar");
+    picker->setCurrentText("Work");
+    picker->textActivated("Work");
     if (window.current_tab() != first || window.active_space() != "Work")
         return Error::from_string_literal("Choosing Work did not restore its original tab in the same window");
     for (auto* widget : QApplication::topLevelWidgets()) {
         if (qobject_cast<Ladybird::BrowserWindow*>(widget) && widget != &window)
             return Error::from_string_literal("Switching Spaces created another browser window");
     }
+
+    auto scroll = [&](Qt::ScrollPhase phase, int delta) {
+        QWheelEvent event(QPointF(3, 3), QPointF(picker->mapToGlobal(QPoint(3, 3))), QPoint(delta, 0), {},
+            Qt::NoButton, Qt::NoModifier, phase, false);
+        QApplication::sendEvent(picker, &event);
+    };
+    auto next_space = picker->itemText((picker->currentIndex() + 1) % picker->count());
+    scroll(Qt::ScrollBegin, 0);
+    scroll(Qt::ScrollUpdate, -80);
+    scroll(Qt::ScrollUpdate, -90);
+    scroll(Qt::ScrollEnd, 0);
+    if (window.active_space() != next_space)
+        return Error::from_string_literal("One sidebar swipe must advance exactly one Space");
+    scroll(Qt::ScrollBegin, 0);
+    scroll(Qt::ScrollUpdate, 80);
+    scroll(Qt::ScrollEnd, 0);
+    if (window.active_space() != "Work" || window.current_tab() != first)
+        return Error::from_string_literal("The reverse sidebar swipe did not restore the live Work tab");
 
     auto& work_history = Ladybird::Application::history_store(17);
     auto& personal_history = Ladybird::Application::history_store(29);
