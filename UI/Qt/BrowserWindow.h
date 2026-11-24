@@ -35,6 +35,7 @@ class QComboBox;
 class QDockWidget;
 class QIcon;
 class QListWidget;
+class QTreeWidget;
 class QWheelEvent;
 class QPropertyAnimation;
 class QTimer;
@@ -183,7 +184,7 @@ public:
     // Pinned tabs always fill the start of the strip: indices [0, pinned_tab_count()).
     int pinned_tab_count() const;
     // The tab joins the end of the pinned group, or the place in it that pinned_index gives.
-    void pin_tab(Tab&, Optional<int> pinned_index = {});
+    void pin_tab(Tab&, Optional<int> pinned_index = {}, Optional<URL::URL> home = {});
     // The tab joins the start of the unpinned group.
     void unpin_tab(Tab&);
     void activate_first_unpinned_tab();
@@ -322,6 +323,7 @@ private:
     void cycle_space(int delta);
     void refresh_space_sidebar();
     void refresh_favorites();
+    void refresh_pinned_folders();
     void refresh_mini_player();
     QColor space_color() const;
     void set_space_color(QColor);
@@ -376,6 +378,7 @@ private:
     QComboBox* m_space_picker { nullptr };
     QPointer<Tab> m_media_tab;
     QPushButton* m_media_play_pause { nullptr };
+    QTreeWidget* m_pinned_folders { nullptr };
     QListWidget* m_favorites_list { nullptr };
     QListWidget* m_space_tab_list { nullptr };
     QList<QPointer<Tab>> m_listed_space_tabs;

@@ -9,6 +9,7 @@
 #include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
 #include <UI/Qt/Menu.h>
+#include <UI/Qt/SpaceBookmarks.h>
 #include <UI/Qt/StringUtils.h>
 
 #include <QColorDialog>
@@ -21,6 +22,8 @@
 #include <QSignalBlocker>
 #include <QStyle>
 #include <QTimer>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
@@ -77,6 +80,23 @@ void BrowserWindow::initialize_spaces()
     connect(reset, &QAction::triggered, this, [this] { set_space_color({}); });
     if (!m_space_sidebar && space_color().isValid())
         create_space_sidebar();
+    auto* new_folder = menu->addAction("New Pinned Folder…");
+    new_folder->setEnabled(is_private() == WebView::IsPrivate::No);
+    connect(new_folder, &QAction::triggered, this, [this] {
+        auto space = m_active_space;
+        auto title = QInputDialog::getText(this, "New Pinned Folder", "Folder name").trimmed();
+        if (title.isEmpty())
+            return;
+        auto parent = space_bookmarks_folder(space, true).release_value();
+        if (m_pinned_folders && m_pinned_folders->currentItem()) {
+            auto selected = ak_string_from_qstring(m_pinned_folders->currentItem()->data(0, Qt::UserRole).toString());
+            if (auto item = Application::bookmark_store().find_item_by_id(selected); item.has_value() && item->is_folder())
+                parent = selected;
+        }
+        Application::bookmark_store().add_folder(ak_string_from_qstring(title), parent);
+        refresh_pinned_folders();
+    });
+    refresh_pinned_folders();
     auto* routes = menu->addMenu("External Link Routing");
     connect(routes, &QMenu::aboutToShow, this, [this, routes] {
         routes->clear();
@@ -249,6 +269,48 @@ void BrowserWindow::create_space_sidebar()
     m_space_picker = new QComboBox(panel);
     m_space_picker->setAccessibleName("Current Space");
     layout->addWidget(m_space_picker);
+    m_pinned_folders = new QTreeWidget(panel);
+    m_pinned_folders->setHeaderHidden(true);
+    m_pinned_folders->setAccessibleName("Pinned tabs and folders");
+    m_pinned_folders->setContextMenuPolicy(Qt::CustomContextMenu);
+    layout->addWidget(m_pinned_folders);
+    connect(m_pinned_folders, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem* row, int) {
+        auto id = ak_string_from_qstring(row->data(0, Qt::UserRole).toString());
+        auto item = Application::bookmark_store().find_item_by_id(id);
+        if (!item.has_value() || !item->is_bookmark())
+            return;
+        auto url = item->bookmark().url;
+        for (int i = 0; i < tab_count(); ++i) {
+            if (tab_at(i)->space_name() == m_active_space && tab_at(i)->url() == url) {
+                activate_tab(i);
+                return;
+            }
+        }
+        auto& tab = new_tab_from_url(url, Web::HTML::ActivateTab::Yes, TabLocation::end());
+        pin_tab(tab, {}, url);
+    });
+    connect(m_pinned_folders, &QWidget::customContextMenuRequested, this, [this](QPoint pos) {
+        auto* row = m_pinned_folders->itemAt(pos);
+        if (!row || !current_tab())
+            return;
+        auto id = ak_string_from_qstring(row->data(0, Qt::UserRole).toString());
+        auto item = Application::bookmark_store().find_item_by_id(id);
+        if (!item.has_value())
+            return;
+        QMenu menu(this);
+        if (item->is_folder()) {
+            auto* pin = menu.addAction("Pin Current Tab Here");
+            if (menu.exec(m_pinned_folders->viewport()->mapToGlobal(pos)) == pin && current_tab()) {
+                auto& tab = *current_tab();
+                save_space_bookmark(m_active_space, tab.url(), ak_string_from_qstring(tab.title()), id);
+                pin_tab(tab);
+            }
+        } else {
+            auto* remove = menu.addAction("Remove Saved Pin");
+            if (menu.exec(m_pinned_folders->viewport()->mapToGlobal(pos)) == remove)
+                Application::bookmark_store().remove_item(id);
+        }
+    });
     m_space_tab_list = new QListWidget(panel);
     m_space_tab_list->setAccessibleName("Tabs in this Space");
     m_space_tab_list->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -279,6 +341,8 @@ void BrowserWindow::create_space_sidebar()
     addDockWidget(Qt::LeftDockWidgetArea, m_space_sidebar);
     m_tabs_container->set_space_sidebar_visible(true);
     update_tabs_display();
+    m_pinned_folders->hide();
+    refresh_pinned_folders();
     refresh_favorites();
     refresh_space_sidebar();
 }
@@ -331,6 +395,49 @@ void BrowserWindow::refresh_mini_player()
     m_media_play_pause->setVisible(m_media_tab);
     if (m_media_tab)
         m_media_play_pause->setText("Play / Pause · " + m_media_tab->title());
+}
+
+void BrowserWindow::refresh_pinned_folders()
+{
+    if (is_private() == WebView::IsPrivate::Yes || m_is_popup_window == IsPopupWindow::Yes)
+        return;
+    auto root = space_bookmarks_folder(m_active_space, false);
+    if (!m_pinned_folders) {
+        if (root.has_value())
+            create_space_sidebar();
+        return;
+    }
+    QSet<QString> expanded;
+    for (QTreeWidgetItemIterator it(m_pinned_folders); *it; ++it) {
+        if ((*it)->isExpanded())
+            expanded.insert((*it)->data(0, Qt::UserRole).toString());
+    }
+    m_pinned_folders->clear();
+    m_pinned_folders->setProperty("space", m_active_space);
+    m_pinned_folders->setVisible(root.has_value());
+    if (!root.has_value())
+        return;
+    auto folder = Application::bookmark_store().find_item_by_id(*root);
+    if (!folder.has_value())
+        return;
+    auto append = [&](auto&& self, QTreeWidgetItem* parent, BookmarkItem const& child) -> void {
+        auto* row = new QTreeWidgetItem(parent);
+        auto id = qstring_from_ak_string(child.id);
+        row->setData(0, Qt::UserRole, id);
+        if (child.is_folder()) {
+            row->setText(0, qstring_from_ak_string(child.folder().title.value_or(String {})));
+            row->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
+            for (auto const& entry : child.folder().children)
+                self(self, row, entry);
+            row->setExpanded(expanded.contains(id));
+        } else {
+            auto const& bookmark = child.bookmark();
+            row->setText(0, qstring_from_ak_string(bookmark.title.value_or(bookmark.url.serialize())));
+            row->setToolTip(0, qstring_from_ak_string(bookmark.url.serialize()));
+        }
+    };
+    for (auto const& entry : folder->folder().children)
+        append(append, m_pinned_folders->invisibleRootItem(), entry);
 }
 
 void BrowserWindow::refresh_favorites()
@@ -387,6 +494,8 @@ void BrowserWindow::refresh_space_sidebar()
             m_space_picker->addItems(m_spaces);
         }
         m_space_picker->setCurrentText(m_active_space);
+        if (m_pinned_folders->property("space").toString() != m_active_space)
+            refresh_pinned_folders();
         auto theme = QApplication::palette();
         if (auto color = space_color(); color.isValid()) {
             auto foreground = color.lightnessF() < 0.48 ? QColor(Qt::white) : QColor(Qt::black);

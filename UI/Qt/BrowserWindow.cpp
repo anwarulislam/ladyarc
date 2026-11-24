@@ -31,6 +31,7 @@
 #include <UI/Qt/Popover.h>
 #include <UI/Qt/RemoteDownloads.h>
 #include <UI/Qt/SessionStore.h>
+#include <UI/Qt/SpaceBookmarks.h>
 #include <UI/Qt/StringUtils.h>
 #include <UI/Qt/SystemAppearance.h>
 #if defined(AK_OS_MACOS)
@@ -769,6 +770,7 @@ void BrowserWindow::update_tabs_display()
 void BrowserWindow::rebuild_bookmarks_menu()
 {
     m_tabs_container->bookmarks_bar().rebuild();
+    refresh_pinned_folders();
     refresh_favorites();
 }
 
@@ -1405,7 +1407,7 @@ int BrowserWindow::constrain_insertion_index(int index, bool pinned) const
     return clamp(index, pinned_count, m_tabs_container->count());
 }
 
-void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index)
+void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index, Optional<URL::URL> home)
 {
     auto index = tab_index(&tab);
     if (index < 0 || tab.is_pinned())
@@ -1414,6 +1416,9 @@ void BrowserWindow::pin_tab(Tab& tab, Optional<int> pinned_index)
     auto pinned_count = pinned_tab_count();
     auto destination = clamp(pinned_index.value_or(pinned_count), 0, pinned_count);
     tab.set_pinned(true);
+    tab.pin_home = home.value_or(tab.url());
+    if (is_private() == WebView::IsPrivate::No)
+        save_space_bookmark(tab.space_name(), *tab.pin_home, ak_string_from_qstring(tab.title()));
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);
@@ -1427,6 +1432,9 @@ void BrowserWindow::unpin_tab(Tab& tab)
 
     auto destination = pinned_tab_count() - 1;
     tab.set_pinned(false);
+    if (is_private() == WebView::IsPrivate::No)
+        remove_space_bookmark(tab.space_name(), tab.pin_home.value_or(tab.url()));
+    tab.pin_home.clear();
     if (index != destination)
         m_tabs_container->tab_bar()->moveTab(index, destination);
     pinned_state_changed(tab);

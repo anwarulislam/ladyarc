@@ -14,7 +14,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [x] Vertical sidebar. The tab layout menu offers left, right and all-in-sidebar layouts. Show Sidebar toggles its expanded state.
 - [ ] Assign profiles to Spaces and share a profile between Spaces.
 - [x] Spaces → Add Current Page to Favorites pins an icon above the Space picker in every window in the profile. Right-click an icon to remove it. The Favorites bookmark folder also supports editing and reordering.
-- [ ] Pin tabs and organize them in nested Space folders. Window-level pinning already exists.
+- [x] Pin Tab saves a bookmark in the current Space. Select a folder before choosing New Pinned Folder to nest it. Right-click a folder to pin the current page there. Activate a saved pin to return to it.
 - [ ] Subscribe a live folder to an external feed.
 - [ ] Archive inactive tabs automatically and recover them. The session store already supports reopening manually closed tabs.
 - [x] Choose Space Color sets the sidebar color for a named Space. Use System Color follows the desktop theme again. Private windows keep their colors in memory.

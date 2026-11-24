@@ -103,6 +103,7 @@ public:
     void ensure_loaded();
 
     URL::URL url() const;
+    Optional<URL::URL> pin_home;
     QString const& space_name() const { return m_space_name; }
     void set_space_name(QString name) { m_space_name = AK::move(name); }
 
