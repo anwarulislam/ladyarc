@@ -32,6 +32,7 @@ add_library(ladybird_impl STATIC
     BrowserWindowLiveFolders.cpp
     BrowserWindowSpaces.cpp
     KeyboardShortcuts.cpp
+    ScreenshotLibrary.cpp
     CommandBar.cpp
     SpaceBookmarks.cpp
     ChromeStyle.cpp

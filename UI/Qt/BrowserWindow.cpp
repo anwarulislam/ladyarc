@@ -31,6 +31,7 @@
 #include <UI/Qt/Motion.h>
 #include <UI/Qt/Popover.h>
 #include <UI/Qt/RemoteDownloads.h>
+#include <UI/Qt/ScreenshotLibrary.h>
 #include <UI/Qt/SessionStore.h>
 #include <UI/Qt/SpaceBookmarks.h>
 #include <UI/Qt/StringUtils.h>
@@ -619,6 +620,8 @@ void BrowserWindow::initialize_ladybird_menu()
 
     m_ladybird_menu->addMenu(application.history_menu());
     m_ladybird_menu->addMenu(application.bookmarks_menu());
+    if (m_is_private == WebView::IsPrivate::No)
+        ScreenshotLibrary::the().add_menu(*m_ladybird_menu);
     auto* downloads_action = m_ladybird_menu->addAction("Downloads");
     downloads_action->setShortcutVisibleInContextMenu(true);
     // NB: The application's own downloads action owns the shortcut. This item only shows it.

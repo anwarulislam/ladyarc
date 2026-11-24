@@ -48,7 +48,10 @@
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <UI/Qt/ScreenshotLibrary.h>
+
 #include <QMimeData>
+#include <QListWidget>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
@@ -1074,6 +1077,24 @@ private:
     QToolButton* m_show_in_folder_button { nullptr };
 };
 
+class ScreenshotRows final : public QListWidget {
+public:
+    using QListWidget::QListWidget;
+
+    QMimeData* mimeData(QList<QListWidgetItem*> const& items) const override
+    {
+        QList<QUrl> urls;
+        for (auto* item : items) {
+            auto path = item->data(Qt::UserRole).toString();
+            if (QFileInfo(path).isFile())
+                urls.append(QUrl::fromLocalFile(path));
+        }
+        auto* mime = new QMimeData;
+        mime->setUrls(urls);
+        return mime;
+    }
+};
+
 class DownloadsPopover final : public Popover {
 public:
     AK_ALLOC_WITH_KMALLOC;
@@ -1108,6 +1129,14 @@ public:
         m_empty_label->setAlignment(Qt::AlignCenter);
         m_empty_label->setMinimumHeight(80);
         layout->addWidget(m_empty_label);
+        m_screenshot_rows = new ScreenshotRows(this);
+        m_screenshot_rows->setAccessibleName("Recent system screenshots");
+        m_screenshot_rows->setDragEnabled(true);
+        m_screenshot_rows->setDragDropMode(QAbstractItemView::DragOnly);
+        m_screenshot_rows->setDefaultDropAction(Qt::CopyAction);
+        m_screenshot_rows->setMaximumHeight(110);
+        m_screenshot_rows->hide();
+        layout->addWidget(m_screenshot_rows);
 
         m_scroll_area = new QScrollArea(this);
         m_scroll_area->setObjectName("LadybirdDownloadsPopoverScroll");
@@ -1148,7 +1177,7 @@ public:
         setStyleSheet(ChromeStyle::downloads_popover_style_sheet(palette));
     }
 
-    bool set_downloads(ReadonlySpan<WebView::FileDownloader::Download> downloads)
+    bool set_downloads(ReadonlySpan<WebView::FileDownloader::Download> downloads, QStringList const& screenshots)
     {
         bool geometry_changed = false;
         auto visible_downloads = recent_downloads_for_popover(downloads);
@@ -1163,15 +1192,26 @@ public:
             }
         }
 
-        auto is_empty = visible_downloads.is_empty();
+        if (screenshots != m_screenshots) {
+            m_screenshots = screenshots;
+            m_screenshot_rows->clear();
+            for (auto const& path : screenshots) {
+                auto* item = new QListWidgetItem(QFileInfo(path).fileName(), m_screenshot_rows);
+                item->setData(Qt::UserRole, path);
+                item->setToolTip(path);
+            }
+            m_screenshot_rows->setVisible(!screenshots.isEmpty());
+            geometry_changed = true;
+        }
+        auto is_empty = visible_downloads.is_empty() && screenshots.isEmpty();
         auto empty_label_is_visible = !m_empty_label->isHidden();
         if (empty_label_is_visible != is_empty) {
             m_empty_label->setVisible(is_empty);
             geometry_changed = true;
         }
         auto scroll_area_is_visible = !m_scroll_area->isHidden();
-        if (scroll_area_is_visible == is_empty) {
-            m_scroll_area->setVisible(!is_empty);
+        if (scroll_area_is_visible == visible_downloads.is_empty()) {
+            m_scroll_area->setVisible(!visible_downloads.is_empty());
             geometry_changed = true;
         }
 
@@ -1242,6 +1282,8 @@ private:
     QWidget* m_rows_widget { nullptr };
     QVBoxLayout* m_rows_layout { nullptr };
     Vector<DownloadRow*> m_download_rows;
+    ScreenshotRows* m_screenshot_rows { nullptr };
+    QStringList m_screenshots;
 };
 
 WindowToolbar::WindowToolbar(WebView::IsPrivate is_private, QWidget* parent)
@@ -1267,6 +1309,12 @@ WindowToolbar::WindowToolbar(WebView::IsPrivate is_private, QWidget* parent)
     toolbar_container_layout->setContentsMargins(0, 0, 0, TOOLBAR_BOTTOM_LINE_HEIGHT);
 
     m_downloads_button = new DownloadsButton(m_toolbar);
+    if (m_is_private == WebView::IsPrivate::No) {
+        QObject::connect(&ScreenshotLibrary::the(), &ScreenshotLibrary::files_changed, this, [this] {
+            update_downloads_button();
+            update_downloads_popover();
+        });
+    }
     QObject::connect(m_downloads_button, &QToolButton::clicked, this, [this] {
         // NB: The button only stays checked while the list is open, which showing it sees to.
         m_downloads_button->setChecked(m_downloads_popover && m_downloads_popover->isVisible());
@@ -2091,12 +2139,13 @@ void WindowToolbar::update_downloads_button()
     auto downloads = RemoteDownloads::the().downloads_of_session(m_is_private);
     auto button_state = downloads_button_state(downloads);
 
-    if (!button_state.has_downloads && m_downloads_popover)
+    auto has_files = button_state.has_downloads || (m_is_private == WebView::IsPrivate::No && !ScreenshotLibrary::the().files().isEmpty());
+    if (!has_files && m_downloads_popover)
         m_downloads_popover->close();
 
     // The arrow drops into place as the button appears, and bobs once as a download finishes.
     auto was_visible = m_downloads_button->isVisible();
-    m_downloads_button->setVisible(button_state.has_downloads);
+    m_downloads_button->setVisible(has_files);
     if (!was_visible && button_state.has_downloads)
         m_downloads_button->play_icon_motion(ToolbarButton::IconMotion::DropIn);
     else if (button_state.completed_download_count > m_completed_download_count)
@@ -2118,7 +2167,7 @@ void WindowToolbar::update_downloads_popover()
     if (!m_downloads_popover || !m_downloads_popover->isVisible())
         return;
 
-    if (m_downloads_popover->set_downloads(RemoteDownloads::the().downloads_of_session(m_is_private)))
+    if (m_downloads_popover->set_downloads(RemoteDownloads::the().downloads_of_session(m_is_private), m_is_private == WebView::IsPrivate::No ? ScreenshotLibrary::the().files() : QStringList {}))
         position_downloads_popover();
 }
 
@@ -2183,7 +2232,7 @@ void WindowToolbar::show_feedback_popover()
 void WindowToolbar::show_downloads_popover()
 {
     auto downloads = RemoteDownloads::the().downloads_of_session(m_is_private);
-    if (!downloads_button_state(downloads).has_downloads) {
+    if (!downloads_button_state(downloads).has_downloads && (m_is_private == WebView::IsPrivate::Yes || ScreenshotLibrary::the().files().isEmpty())) {
         m_open_downloads_page_action->trigger();
         return;
     }
@@ -2224,7 +2273,7 @@ void WindowToolbar::show_downloads_popover()
     }
 
     m_downloads_popover->update_chrome_style(palette());
-    (void)m_downloads_popover->set_downloads(RemoteDownloads::the().downloads_of_session(m_is_private));
+    (void)m_downloads_popover->set_downloads(RemoteDownloads::the().downloads_of_session(m_is_private), m_is_private == WebView::IsPrivate::No ? ScreenshotLibrary::the().files() : QStringList {});
     position_downloads_popover();
     m_downloads_popover->show();
     position_downloads_popover();
