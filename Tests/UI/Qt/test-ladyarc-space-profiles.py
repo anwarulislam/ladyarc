@@ -31,7 +31,7 @@ def main():
                 env["LADYARC_TEST_ORIGIN"] = f"http://127.0.0.1:{server.server_port}/"
                 if not env.get("DISPLAY") and not env.get("WAYLAND_DISPLAY"):
                     env.setdefault("QT_QPA_PLATFORM", "offscreen")
-                subprocess.run([sys.argv[1], "--temporary-profile"], env=env, check=True, timeout=120)
+                subprocess.run([sys.argv[1], "--temporary-profile", "--force-cpu-painting"], env=env, check=True, timeout=120)
             finally:
                 server.shutdown()
                 thread.join()

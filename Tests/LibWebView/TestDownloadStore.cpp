@@ -24,6 +24,7 @@ static WebView::DownloadRecord example_download(i64 id = 7)
 {
     return WebView::DownloadRecord {
         .id = id,
+        .profile_id = 17,
         .url = "https://cdn.example.com/big.iso"_string,
         .display_url = "https://example.com/big.iso"_string,
         .destination = "/home/anon/Downloads/big.iso"_string,
@@ -51,6 +52,7 @@ TEST_CASE(downloads_round_trip)
 
     auto const& download = downloads.first();
     EXPECT_EQ(download.id, 7u);
+    EXPECT_EQ(download.profile_id, 17);
     EXPECT_EQ(download.url, "https://cdn.example.com/big.iso"_string);
     EXPECT_EQ(download.display_url, "https://example.com/big.iso"_string);
     EXPECT_EQ(download.destination, "/home/anon/Downloads/big.iso"_string);
@@ -266,6 +268,7 @@ TEST_CASE(a_database_left_at_an_older_schema_is_brought_forward)
     auto downloads = store->resumable_downloads();
     EXPECT_EQ(downloads.size(), 1u);
     EXPECT_EQ(downloads.first().id, 5u);
+    EXPECT_EQ(downloads.first().profile_id, 0);
 
     EXPECT(!downloads.first().can_restart_from_zero);
 

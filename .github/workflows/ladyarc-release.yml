@@ -70,7 +70,7 @@ jobs:
             libx11-xcb-dev libxcb-cursor-dev libxcb-image0-dev libxcb-keysyms1-dev \
             libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev libxcb-sync-dev \
             libxcb-util-dev libxcb-xfixes0-dev libxcb-xinput-dev libxcb-xkb-dev \
-            libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrender-dev patchelf wayland-protocols
+            libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrender-dev patchelf wayland-protocols xauth xvfb
 
       - name: Configure the browser
         env:
@@ -115,7 +115,7 @@ jobs:
         id: desktop
         run: |
           ninja -C Build -t targets all > "$RUNNER_TEMP/ninja-targets"
-          awk -F': ' '/(UI\/Qt|Services\/Hub)\/CMakeFiles\/.*\.o: CXX/ { print $1 }' \
+          awk -F': ' '/(UI\/Qt\/CMakeFiles\/ladybird_impl|Services\/Hub\/CMakeFiles\/hubservice)\.dir\/.*\.o: CXX/ { print $1 }' \
             "$RUNNER_TEMP/ninja-targets" > "$RUNNER_TEMP/desktop-objects"
           test -s "$RUNNER_TEMP/desktop-objects"
           xargs ninja -C Build -j3 -k8 < "$RUNNER_TEMP/desktop-objects"
@@ -143,8 +143,8 @@ jobs:
         if: matrix.platform == 'Linux'
         run: |
           cmake -S . -B Build -DBUILD_TESTING=ON -DBUILD_BROWSER_TESTS_ONLY=OFF
-          cmake --build Build --parallel 3 --target TestLadyarcSpaceProfiles
-          ctest --test-dir Build --output-on-failure --no-tests=error -R '^test-ladyarc-space-profiles$'
+          cmake --build Build --parallel 3 --target check-ladyarc-storage TestLadyarcSpaceProfiles
+          xvfb-run -a -s "-screen 0 1280x800x24" ctest --test-dir Build --output-on-failure --no-tests=error -R '^test-ladyarc-space-profiles$'
 
       - name: Collect corresponding third-party sources
         if: github.event_name == 'release'
