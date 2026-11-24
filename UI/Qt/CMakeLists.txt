@@ -27,6 +27,7 @@ add_library(ladybird_impl STATIC
     DownloadPresentation.cpp
     DownloadsPage.cpp
     BrowserWindow.cpp
+    BrowserWindowArchive.cpp
     BrowserWindowSpaces.cpp
     CommandBar.cpp
     SpaceBookmarks.cpp

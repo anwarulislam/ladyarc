@@ -40,6 +40,8 @@ void BrowserWindow::initialize_spaces()
         return;
     auto* menu = m_ladybird_menu->addMenu("Spaces");
     menuBar()->addMenu(menu);
+    if (is_private() == WebView::IsPrivate::No)
+        initialize_archive(*menu);
     auto* favorite = menu->addAction("Add Current Page to Favorites");
     connect(favorite, &QAction::triggered, this, [this] {
         if (!current_tab())

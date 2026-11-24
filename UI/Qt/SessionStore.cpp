@@ -31,6 +31,7 @@ static constexpr u32 SESSIONS_SCHEMA_RESTART_VERSION = 10u;
 static constexpr u32 SESSIONS_SCHEMA_LOCAL_FILE_CONTENT_VERSION = 11u;
 static constexpr u32 SESSIONS_SCHEMA_LOCAL_FILE_ROOTS_VERSION = 12u;
 static constexpr u32 SESSIONS_SCHEMA_SPACES_VERSION = 13u;
+static constexpr u32 SESSIONS_SCHEMA_TAB_ACTIVITY_VERSION = 14u;
 
 // After this many unclean exits in a row, launch restore stops, so a session that crashes the browser doesn't restore
 // into the same crash every time.
@@ -319,6 +320,13 @@ ErrorOr<Database::MigrationOutcome> SessionStore::PersistedStorage::migrate_sche
             .version = SESSIONS_SCHEMA_SPACES_VERSION,
             .sql = "ALTER TABLE SessionTabs ADD COLUMN space_name TEXT NOT NULL DEFAULT '';"sv,
         },
+        {
+            .version = SESSIONS_SCHEMA_TAB_ACTIVITY_VERSION,
+            .sql = R"#(
+                ALTER TABLE SessionTabs ADD COLUMN last_active INTEGER NOT NULL DEFAULT 0;
+                UPDATE SessionTabs SET last_active = unixepoch();
+            )#"sv,
+        },
     });
 
     return database.migrate("Sessions"sv, migrations, mode);
@@ -336,8 +344,10 @@ ErrorOr<SessionStore::PersistedStorage> SessionStore::PersistedStorage::create(D
 
     Statements statements {};
     statements.insert_session = TRY(database.prepare_statement("INSERT INTO Sessions (id, kind, closed_time, close_sequence, source_window_id, source_tab_index, origin, active_tab_index) VALUES (:id, :kind, :closed_time, :close_sequence, :source_window_id, :source_tab_index, :origin, :active_tab_index);"sv));
-    statements.insert_tab = TRY(database.prepare_statement("INSERT INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name);"sv));
-    statements.insert_tab_if_missing = TRY(database.prepare_statement("INSERT OR IGNORE INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name);"sv));
+    statements.insert_tab = TRY(database.prepare_statement("INSERT INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name, last_active) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name, unixepoch());"sv));
+    statements.insert_tab_if_missing = TRY(database.prepare_statement("INSERT OR IGNORE INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name, last_active) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name, unixepoch());"sv));
+    statements.touch_tab = TRY(database.prepare_statement("UPDATE SessionTabs SET last_active = unixepoch() WHERE id = :id;"sv));
+    statements.select_inactive_tabs = TRY(database.prepare_statement("SELECT id FROM SessionTabs WHERE session_id = :window AND pinned = 0 AND last_active > 0 AND last_active <= :cutoff ORDER BY last_active;"sv));
     statements.update_tab_space = TRY(database.prepare_statement("UPDATE SessionTabs SET space_name = :space_name WHERE id = :id;"sv));
     statements.update_tab_row = TRY(database.prepare_statement("UPDATE SessionTabs SET active_url = :active_url, current_used_step_index = :current_used_step_index, pinned = :pinned WHERE id = :id;"sv));
     statements.update_tab_placement = TRY(database.prepare_statement("UPDATE SessionTabs SET session_id = :session_id, tab_ordinal = :tab_ordinal, pinned = :pinned WHERE id = :id;"sv));
@@ -1911,6 +1921,32 @@ ErrorOr<void> SessionStore::set_tab_space(SessionTabId id, String name)
     }
     m_transient_storage.set_tab_space(id, move(name));
     return {};
+}
+
+ErrorOr<void> SessionStore::touch_tab(SessionTabId id)
+{
+    if (!m_persisted_storage.has_value())
+        return {};
+    auto& storage = *m_persisted_storage;
+    return storage.database->try_execute_bound_statement(storage.statements.touch_tab, [&](auto& bind) -> ErrorOr<void> {
+        return bind("id"sv, id);
+    });
+}
+
+ErrorOr<Vector<SessionTabId>> SessionStore::inactive_tabs(SessionWindowId window, i64 cutoff)
+{
+    Vector<SessionTabId> result;
+    if (!m_persisted_storage.has_value())
+        return result;
+    auto& storage = *m_persisted_storage;
+    TRY(storage.database->try_execute_bound_statement(storage.statements.select_inactive_tabs, [&](auto& bind) -> ErrorOr<void> {
+        TRY(bind("window"sv, window));
+        return bind("cutoff"sv, cutoff);
+    }, [&](Database::ResultRow& row) -> ErrorOr<void> {
+        result.append(TRY(row.read_integer<SessionTabId>("id"sv)));
+        return {};
+    }));
+    return result;
 }
 
 void SessionStore::tab_moved(TabMoved moved)

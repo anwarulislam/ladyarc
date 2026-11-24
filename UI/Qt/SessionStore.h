@@ -169,6 +169,8 @@ public:
     void tab_detached(SessionTabId);
     void tab_moved(TabMoved);
     ErrorOr<void> set_tab_space(SessionTabId, String);
+    ErrorOr<void> touch_tab(SessionTabId);
+    ErrorOr<Vector<SessionTabId>> inactive_tabs(SessionWindowId, i64 cutoff);
     void tab_order_changed(TabOrderChanged);
 
     // A pin moves the tab into or out of the pinned tabs at the start of its window, so it's written at once, together
@@ -243,6 +245,8 @@ private:
         Database::StatementID insert_tab_if_missing;
         Database::StatementID update_tab_row;
         Database::StatementID update_tab_space;
+        Database::StatementID touch_tab;
+        Database::StatementID select_inactive_tabs;
         Database::StatementID update_tab_placement;
         Database::StatementID update_tab_parent;
         Database::StatementID update_session_closed;

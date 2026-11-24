@@ -79,6 +79,7 @@ static SessionTabId open_tab(SessionStore& store, SessionWindowId window, String
 // Takes the schema back to SESSIONS_SCHEMA_DOCUMENT_POLICY_VERSION, so every migration after it runs again.
 static void rewind_sessions_schema_to_version_4(Database::Database& database)
 {
+    MUST(database.execute_raw("ALTER TABLE SessionTabs DROP COLUMN last_active;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionTabs DROP COLUMN space_name;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionEntries DROP COLUMN local_file_root_scope;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionEntries DROP COLUMN local_file_root_path;"sv));
@@ -113,7 +114,7 @@ TEST_CASE(fresh_database_migrates_to_the_latest_schema)
     for (auto table : { "Sessions"sv, "SessionTabs"sv, "SessionUsedSteps"sv, "SessionHistories"sv, "SessionNestedHistories"sv, "SessionEntries"sv, "SessionUpgradeInsecureNavigations"sv })
         EXPECT(TRY_OR_FAIL(database->table_exists(table)));
 
-    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 13u });
+    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 14u });
 }
 
 TEST_CASE(deleting_a_session_cascades_through_its_tabs)
@@ -139,6 +140,22 @@ TEST_CASE(duplicate_snapshot_row_ordinals_are_rejected)
     TRY_OR_FAIL(database->execute_raw("INSERT INTO SessionUsedSteps (tab_id, step_ordinal, step) VALUES (2, 0, 0);"sv));
 
     EXPECT(database->execute_raw("INSERT INTO SessionUsedSteps (tab_id, step_ordinal, step) VALUES (2, 0, 1);"sv).is_error());
+}
+
+TEST_CASE(archive_candidates_exclude_recent_and_pinned_tabs)
+{
+    auto database = create_session_database();
+    auto store = TRY_OR_FAIL(SessionStore::create(*database));
+    auto window = TRY_OR_FAIL(store->window_opened());
+    auto stale = open_tab(*store, window, "https://stale.example/"sv);
+    auto pinned = open_tab(*store, window, "https://pinned.example/"sv);
+    TRY_OR_FAIL(store->tab_pinned_changed(pinned, true));
+    TRY_OR_FAIL(database->execute_raw("UPDATE SessionTabs SET last_active = 1;"sv));
+    auto candidates = TRY_OR_FAIL(store->inactive_tabs(window, 2));
+    EXPECT_EQ(candidates.size(), 1u);
+    EXPECT_EQ(candidates.first(), stale);
+    TRY_OR_FAIL(store->touch_tab(stale));
+    EXPECT(TRY_OR_FAIL(store->inactive_tabs(window, 2)).is_empty());
 }
 
 TEST_CASE(reopening_a_closed_tab_keeps_its_space)
@@ -173,7 +190,7 @@ TEST_CASE(version_4_database_migrates_to_the_latest_schema)
     rewind_sessions_schema_to_version_4(*database);
 
     EXPECT_EQ(TRY_OR_FAIL(SessionStore::migrate_schema(*database)), Database::MigrationOutcome::Success);
-    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 13u });
+    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 14u });
     EXPECT(TRY_OR_FAIL(database->table_exists("SessionUpgradeInsecureNavigations"sv)));
     EXPECT_EQ(select_i64(*database, "SELECT pinned FROM SessionTabs WHERE id = 2;"_string), 0);
     EXPECT_EQ(select_i64(*database, "SELECT COUNT(*) FROM Sessions WHERE id = 1 AND width IS NULL;"_string), 1);

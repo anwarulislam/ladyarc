@@ -1190,6 +1190,12 @@ void BrowserWindow::set_current_tab(Tab* tab)
 
     // What a tab's toolbar showed belongs to that tab, so it goes away with it however another tab is selected.
     if (m_current_tab) {
+        if (is_private() == WebView::IsPrivate::No) {
+            if (auto id = m_current_tab->session_tab_id(); id.has_value()) {
+                if (auto result = session().touch_tab(*id); result.is_error())
+                    dbgln("Unable to record tab activity: {}", result.error());
+            }
+        }
         m_current_tab->close_popovers();
         if (!m_tabs_container->page_stack().contains_pane(m_current_tab)) {
             if (tab && tab_index(m_current_tab) >= 0 && !Application::the().has_picture_in_picture_window()
