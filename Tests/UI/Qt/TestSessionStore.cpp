@@ -79,6 +79,7 @@ static SessionTabId open_tab(SessionStore& store, SessionWindowId window, String
 // Takes the schema back to SESSIONS_SCHEMA_DOCUMENT_POLICY_VERSION, so every migration after it runs again.
 static void rewind_sessions_schema_to_version_4(Database::Database& database)
 {
+    MUST(database.execute_raw("ALTER TABLE SessionTabs DROP COLUMN pin_home_url;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionTabs DROP COLUMN last_active;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionTabs DROP COLUMN space_name;"sv));
     MUST(database.execute_raw("ALTER TABLE SessionEntries DROP COLUMN local_file_root_scope;"sv));
@@ -114,7 +115,7 @@ TEST_CASE(fresh_database_migrates_to_the_latest_schema)
     for (auto table : { "Sessions"sv, "SessionTabs"sv, "SessionUsedSteps"sv, "SessionHistories"sv, "SessionNestedHistories"sv, "SessionEntries"sv, "SessionUpgradeInsecureNavigations"sv })
         EXPECT(TRY_OR_FAIL(database->table_exists(table)));
 
-    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 14u });
+    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 15u });
 }
 
 TEST_CASE(deleting_a_session_cascades_through_its_tabs)
@@ -190,7 +191,7 @@ TEST_CASE(version_4_database_migrates_to_the_latest_schema)
     rewind_sessions_schema_to_version_4(*database);
 
     EXPECT_EQ(TRY_OR_FAIL(SessionStore::migrate_schema(*database)), Database::MigrationOutcome::Success);
-    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 14u });
+    EXPECT_EQ(TRY_OR_FAIL(database->schema_version("Sessions"sv)), Optional<u32> { 15u });
     EXPECT(TRY_OR_FAIL(database->table_exists("SessionUpgradeInsecureNavigations"sv)));
     EXPECT_EQ(select_i64(*database, "SELECT pinned FROM SessionTabs WHERE id = 2;"_string), 0);
     EXPECT_EQ(select_i64(*database, "SELECT COUNT(*) FROM Sessions WHERE id = 1 AND width IS NULL;"_string), 1);
