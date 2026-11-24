@@ -57,6 +57,7 @@ public:
     GC::Ref<WebIDL::Promise> request_picture_in_picture();
     // Whether requestPictureInPicture() would enter Picture-in-Picture if it were given a user activation.
     bool can_enter_picture_in_picture() const;
+    void enter_automatic_picture_in_picture(Badge<Page>);
 
     GC::Ptr<PictureInPicture::PictureInPictureWindow> picture_in_picture_window() const { return m_picture_in_picture_window; }
     void set_picture_in_picture_window(GC::Ptr<PictureInPicture::PictureInPictureWindow> window) { m_picture_in_picture_window = window; }
@@ -102,6 +103,7 @@ private:
 
     WebIDL::ExceptionOr<void> determine_element_poster_frame(Optional<Utf16String> const& poster);
     void run_disable_picture_in_picture_steps();
+    GC::Ref<WebIDL::Promise> enqueue_picture_in_picture_request();
 
     GC::Ptr<HTML::VideoTrack> m_video_track;
     VideoFrame m_current_frame;

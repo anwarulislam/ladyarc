@@ -25,7 +25,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [x] Command/Ctrl+T searches open tabs, bookmark titles and URLs, browsing history, and browser commands. Arrow keys select a result. Enter opens it and Escape dismisses the palette. Private windows omit profile history.
 - [x] Spaces → External Link Routing assigns links for the current hostname to a named Space. External web links with no matching rule open in Little Arc. Private windows do not write routing rules.
 - [x] Edit Site Boost saves custom CSS for the current web origin. Clear the editor to remove it. The style applies to loaded tabs on that origin and to subsequent visits.
-- [ ] Start picture-in-picture automatically on tab switch. The browser already has a picture-in-picture window.
+- [x] Enable Automatic Picture in Picture in the browser menu to pop out an eligible playing video in the top-level document when switching away from its tab.
 - [x] A sidebar mini player appears for audio in a background tab. Play / Pause targets that tab’s media session and remains available after pausing.
 - [x] Hold Control and press Tab to visit tabs in recently used order in the current Space. Shift reverses direction. Releasing Control remembers the selection. The Next and Previous Tab menu items still follow strip order.
 - [x] Copy Clean Link removes common campaign and click identifiers with Command+Shift+C or Ctrl+Shift+C. DevTools remains available on F12 and Command/Ctrl+Shift+I.

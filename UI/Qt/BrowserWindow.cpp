@@ -61,6 +61,7 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScreen>
+#include <QSettings>
 #include <QShortcut>
 #include <QStatusBar>
 #include <QSurfaceFormat>
@@ -582,6 +583,14 @@ void BrowserWindow::initialize_ladybird_menu()
     m_ladybird_menu->addAction(application.new_tab_action());
     m_ladybird_menu->addAction(application.new_window_action());
     m_ladybird_menu->addAction(application.little_window_action());
+    auto* auto_pip = m_ladybird_menu->addAction("Automatic Picture in Picture");
+    auto_pip->setCheckable(true);
+    connect(m_ladybird_menu, &QMenu::aboutToShow, this, [auto_pip] {
+        auto_pip->setChecked(Application::desktop_preferences().value("media/automatic-pip", false).toBool());
+    });
+    connect(auto_pip, &QAction::triggered, this, [](bool checked) {
+        Application::desktop_preferences().setValue("media/automatic-pip", checked);
+    });
     auto* boost = m_ladybird_menu->addAction("Edit Site Boost…");
     boost->setEnabled(is_private() == WebView::IsPrivate::No);
     connect(boost, &QAction::triggered, this, [this] {
@@ -1180,8 +1189,12 @@ void BrowserWindow::set_current_tab(Tab* tab)
     // What a tab's toolbar showed belongs to that tab, so it goes away with it however another tab is selected.
     if (m_current_tab) {
         m_current_tab->close_popovers();
-        if (!m_tabs_container->page_stack().contains_pane(m_current_tab))
+        if (!m_tabs_container->page_stack().contains_pane(m_current_tab)) {
+            if (tab && tab_index(m_current_tab) >= 0 && !Application::the().has_picture_in_picture_window()
+                && Application::desktop_preferences().value("media/automatic-pip", false).toBool())
+                HubConnection::the().async_view_enter_automatic_picture_in_picture(m_current_tab->view().view_id());
             m_current_tab->view().set_system_visibility_state(Web::HTML::VisibilityState::Hidden);
+        }
         m_current_tab->view().set_current_tab_of_window(false);
     }
 

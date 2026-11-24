@@ -331,6 +331,7 @@ endpoint WebContentServer routed by Web::PageId page_id
     toggle_media_mute_state(Web::PageId page_id) =|
     toggle_media_loop_state(Web::PageId page_id) =|
     toggle_media_fullscreen_state(Web::PageId page_id) =|
+    enter_automatic_picture_in_picture(Web::PageId page_id) =|
     toggle_media_picture_in_picture_state(Web::PageId page_id) =|
     toggle_media_controls_state(Web::PageId page_id) =|
 

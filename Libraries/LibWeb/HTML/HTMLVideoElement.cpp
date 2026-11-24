@@ -485,12 +485,25 @@ GC::Ref<WebIDL::Promise> HTMLVideoElement::request_picture_in_picture()
     // 9. Let global be this's relevant global object.
     // NB: The controller takes the global from this when it queues its tasks.
 
+    return enqueue_picture_in_picture_request();
+}
+
+void HTMLVideoElement::enter_automatic_picture_in_picture(Badge<Page>)
+{
+    if (paused() || !can_enter_picture_in_picture() || is_picture_in_picture_element() || !m_pending_picture_in_picture_promises.is_empty())
+        return;
+    HTML::TemporaryExecutionContext execution_context { document().relevant_settings_object() };
+    WebIDL::mark_promise_as_handled(enqueue_picture_in_picture_request());
+}
+
+GC::Ref<WebIDL::Promise> HTMLVideoElement::enqueue_picture_in_picture_request()
+{
     // 10. Let p be a new promise created in this's relevant realm.
-    auto promise = WebIDL::create_promise(realm);
+    auto promise = WebIDL::create_promise(HTML::relevant_realm(*this));
     m_pending_picture_in_picture_promises.append(promise);
 
     // 11. Return p, and enqueue the following steps to doc's picture-in-picture parallel queue:
-    controller.enqueue_request(*this, promise);
+    document().page().picture_in_picture_controller().enqueue_request(*this, promise);
     return promise;
 }
 

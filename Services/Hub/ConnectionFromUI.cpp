@@ -371,6 +371,12 @@ void ConnectionFromUI::system_time_zone_changed()
     });
 }
 
+void ConnectionFromUI::view_enter_automatic_picture_in_picture(u64 view_id)
+{
+    if (auto* view = find_view(view_id))
+        view->page().async_enter_automatic_picture_in_picture();
+}
+
 void ConnectionFromUI::view_toggle_media_playback(u64 view_id)
 {
     if (!find_view(view_id))

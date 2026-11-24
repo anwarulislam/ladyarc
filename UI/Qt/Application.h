@@ -262,6 +262,7 @@ private:
     void open_url_in_new_tab_from_notification(URL::URL const&, Optional<u64> view_id, WebView::IsPrivate);
 
     virtual bool supports_picture_in_picture() const override { return true; }
+    bool has_picture_in_picture_window() const { return !m_picture_in_picture_windows.is_empty(); }
     void open_picture_in_picture_window(u64 view_id, u64 owner_view_id, Gfx::IntSize video_size);
     void hide_picture_in_picture_window(u64 view_id);
     void set_picture_in_picture_video_size(u64 view_id, Gfx::IntSize);

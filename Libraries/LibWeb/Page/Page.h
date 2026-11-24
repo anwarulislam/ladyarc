@@ -496,6 +496,7 @@ public:
     void toggle_media_loop_state();
     void toggle_media_fullscreen_state();
     void toggle_media_picture_in_picture_state();
+    void enter_automatic_picture_in_picture();
     void toggle_media_controls_state();
     void set_picture_in_picture_window_controls_in_use(bool);
 

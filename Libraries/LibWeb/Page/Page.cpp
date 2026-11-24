@@ -2137,6 +2137,21 @@ void Page::toggle_media_fullscreen_state()
     media_element->toggle_fullscreen();
 }
 
+void Page::enter_automatic_picture_in_picture()
+{
+    if (!has_local_traversable() || picture_in_picture_controller().has_open_window() || picture_in_picture_controller().is_waiting_for_window_to_open())
+        return;
+    auto document = local_traversable()->active_document();
+    if (!document || document->picture_in_picture_element())
+        return;
+    document->for_each_in_subtree_of_type<HTML::HTMLVideoElement>([](auto& video) {
+        if (video.paused() || !video.can_enter_picture_in_picture())
+            return TraversalDecision::Continue;
+        video.enter_automatic_picture_in_picture({});
+        return TraversalDecision::Break;
+    });
+}
+
 void Page::toggle_media_picture_in_picture_state()
 {
     auto* video_element = as_if<HTML::HTMLVideoElement>(media_context_menu_element().ptr());
