@@ -30,7 +30,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Switch tabs in most-recently-used order while holding Control.
 - [x] Copy Clean Link removes common campaign and click identifiers with Command+Shift+C or Ctrl+Shift+C. DevTools remains available on F12 and Command/Ctrl+Shift+I.
 - [ ] Capture a region, an element or a full page. Region and full-page capture already exist.
-- [ ] Drag completed files out of the downloads list.
+- [x] Drag a completed file from the toolbar downloads popover onto a file drop target or into another application.
 
 ## Compatibility and extras
 

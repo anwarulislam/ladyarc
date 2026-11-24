@@ -39,13 +39,16 @@
 #include <UI/Qt/WindowToolbar.h>
 
 #include <QApplication>
+#include <QDrag>
 #include <QDynamicPropertyChangeEvent>
+#include <QFileInfo>
 #include <QFont>
 #include <QFontMetrics>
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
@@ -973,7 +976,9 @@ public:
 
         auto basename = qstring_from_ak_string(download.destination.basename());
         m_file_name_label->setText(basename);
-        m_file_name_label->setToolTip(qstring_from_ak_string(download.destination.string()));
+        auto path = qstring_from_ak_string(download.destination.string());
+        m_file_name_label->setToolTip(path);
+        m_completed_path = download.status == WebView::FileDownloader::DownloadStatus::Completed ? path : QString {};
         m_file_icon->set_extension(qstring_from_ak_string(download.destination.extension()));
 
         auto status_text = qstring_from_ak_string(download_status_text(download));
@@ -1019,6 +1024,44 @@ public:
     Function<void(u64)> on_show_in_folder;
 
 private:
+    void mousePressEvent(QMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton && !m_completed_path.isEmpty()) {
+            m_drag_start = event->position().toPoint();
+            event->accept();
+            return;
+        }
+        QFrame::mousePressEvent(event);
+    }
+
+    void mouseReleaseEvent(QMouseEvent* event) override
+    {
+        m_drag_start.clear();
+        QFrame::mouseReleaseEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent* event) override
+    {
+        if (!event->buttons().testFlag(Qt::LeftButton) || !m_drag_start.has_value()
+            || (event->position().toPoint() - *m_drag_start).manhattanLength() < QApplication::startDragDistance()) {
+            QFrame::mouseMoveEvent(event);
+            return;
+        }
+        m_drag_start.clear();
+        QFileInfo file(m_completed_path);
+        if (!file.isAbsolute() || !file.isFile())
+            return;
+        auto* mime = new QMimeData;
+        mime->setUrls({ QUrl::fromLocalFile(file.absoluteFilePath()) });
+        // The popover can rebuild its rows while the platform drag loop runs.
+        auto* drag = new QDrag(window());
+        drag->setMimeData(mime);
+        event->accept();
+        drag->exec(Qt::CopyAction);
+    }
+
+    Optional<QPoint> m_drag_start;
+    QString m_completed_path;
     u64 m_download_id { 0 };
     bool m_is_paused { false };
     DownloadFileIcon* m_file_icon { nullptr };
