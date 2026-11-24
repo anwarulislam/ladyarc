@@ -38,7 +38,6 @@ WorkerAgentManager::StartedWorkerAgent WorkerAgentManager::start_worker_agent(We
         .page_id = page_id,
         .token = request.owner_token,
     };
-    auto is_private = owner_client.is_private();
 
     // The owner names outside settings, which must be an environment it holds.
     // FIXME: The worker takes the rest of the outside settings, such as their top-level origin, policy container and
@@ -116,7 +115,7 @@ WorkerAgentManager::StartedWorkerAgent WorkerAgentManager::start_worker_agent(We
         m_shared_workers.remove(key);
     }
 
-    if (has_reached_worker_limit(is_private, *outside_settings))
+    if (has_reached_worker_limit(owner_client.session(), *outside_settings))
         return {};
 
     // 11.6. Otherwise, in parallel, run a worker given worker, urlRecord, outsideSettings, outsidePort,
@@ -191,7 +190,6 @@ void WorkerAgentManager::register_dedicated_worker(WebContentClient& owner_clien
     if (!outside_settings.has_value())
         return;
     DedicatedWorkerOwner owner {
-        .is_private = owner_client.is_private(),
         .process = owner_client,
         .request_server_site_bindings = owner_client.request_server_site_bindings(),
         .local_file_roots = owner_client.local_file_roots(),
@@ -206,7 +204,6 @@ void WorkerAgentManager::register_dedicated_worker(WebWorkerClient& owner_client
     if (!outside_settings.has_value() || !host)
         return;
     DedicatedWorkerOwner owner {
-        .is_private = owner_client.is_private(),
         .process = *host,
         .request_server_site_bindings = owner_client.request_server_site_bindings(),
         .local_file_roots = owner_client.local_file_roots(),
@@ -222,7 +219,7 @@ void WorkerAgentManager::register_dedicated_worker(DedicatedWorkerOwner const& o
         return;
     request.outside_settings.origin = outside_settings.origin();
 
-    if (has_reached_worker_limit(owner.is_private, outside_settings))
+    if (has_reached_worker_limit(owner.process.session(), outside_settings))
         return;
 
     auto client_or_error = [&]() -> ErrorOr<NonnullRefPtr<WebWorkerClient>> {
@@ -250,7 +247,7 @@ bool WorkerAgentManager::page_environment_has_cross_site_ancestor(WebContentClie
 // NB: A top-level site may run only so many workers at once, wherever its documents and workers start them. An opaque
 //     top-level origin is a site of its own. A worker counts until its thread is gone, and one whose creator's browsing
 //     context has been discarded, leaving it no top-level origin, does not start.
-bool WorkerAgentManager::has_reached_worker_limit(IsPrivate is_private, CanonicalEnvironmentSettingsObject const& outside_settings) const
+bool WorkerAgentManager::has_reached_worker_limit(BrowsingSession const& session, CanonicalEnvironmentSettingsObject const& outside_settings) const
 {
     auto top_level_origin = outside_settings.top_level_origin();
     if (!top_level_origin.has_value())
@@ -258,7 +255,7 @@ bool WorkerAgentManager::has_reached_worker_limit(IsPrivate is_private, Canonica
     size_t worker_count_of_top_level_site = 0;
     for (auto const& client : m_clients) {
         auto const& worker_top_level_origin = client->top_level_origin();
-        if (client->is_private() == is_private && worker_top_level_origin.has_value() && worker_top_level_origin->is_same_site(*top_level_origin))
+        if (client->session().ptr() == &session && worker_top_level_origin.has_value() && worker_top_level_origin->is_same_site(*top_level_origin))
             ++worker_count_of_top_level_site;
     }
     return worker_count_of_top_level_site >= Web::HTML::maximum_worker_count;

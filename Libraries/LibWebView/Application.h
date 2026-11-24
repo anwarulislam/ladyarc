@@ -720,6 +720,8 @@ private:
     Web::HTML::CrossProcessIdAllocator m_ui_process_cross_process_id_allocator;
 
     OwnPtr<DownloadStore> m_download_store;
+    void load_saved_space_profiles();
+
     RefPtr<BrowsingSession> m_default_session;
     WeakPtr<BrowsingSession> m_private_session;
     HashMap<u64, NonnullRefPtr<BrowsingSession>> m_space_profiles;

@@ -109,7 +109,6 @@ private:
     };
 
     struct DedicatedWorkerOwner {
-        IsPrivate is_private { IsPrivate::No };
         WebContentClient& process;
         RequestServerSiteBindings const& request_server_site_bindings;
         Vector<LocalFileRoot> local_file_roots;
@@ -119,7 +118,7 @@ private:
 
     static bool owner_process_may_host_shared_worker(Owner const&, CanonicalEnvironmentSettingsObject const& outside_settings);
     static bool page_environment_has_cross_site_ancestor(WebContentClient&, Web::PageId, CanonicalEnvironmentSettingsObject const&);
-    bool has_reached_worker_limit(IsPrivate, CanonicalEnvironmentSettingsObject const& outside_settings) const;
+    bool has_reached_worker_limit(BrowsingSession const&, CanonicalEnvironmentSettingsObject const& outside_settings) const;
     ErrorOr<NonnullRefPtr<WebWorkerClient>> create_worker_client(NonnullOwnPtr<IPC::Transport>, Web::HTML::WorkerAgentId, WebContentClient& host, RequestServerSiteBindings const& owner_request_server_site_bindings);
     static void start_worker(WebWorkerClient&, Web::HTML::WorkerAgentStartRequest, CanonicalEnvironmentSettingsObject const& outside_settings, bool has_cross_site_ancestor, Vector<LocalFileRoot> const& owner_local_file_roots, bool has_process_to_itself);
 

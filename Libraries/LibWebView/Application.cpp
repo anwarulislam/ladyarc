@@ -2894,6 +2894,15 @@ void Application::insert_clipboard_entry(Web::Clipboard::SystemClipboardRepresen
     insert_clipboard_item({ { move(entry) } });
 }
 
+void Application::load_saved_space_profiles()
+{
+    Core::DirIterator directories { LexicalPath::join(profile().paths().data, "SpaceProfiles"sv).string(), Core::DirIterator::SkipParentAndBaseDir };
+    while (directories.has_next()) {
+        if (auto id = directories.next_path().to_number<u64>(); id.has_value() && *id)
+            (void)session_for_new_view(IsPrivate::No, *id);
+    }
+}
+
 NonnullRefPtr<Core::Promise<Application::BrowsingDataSizes>> Application::estimate_browsing_data_size_accessed_since(UnixDateTime since)
 {
     auto promise = Core::Promise<BrowsingDataSizes>::construct();
@@ -2910,6 +2919,13 @@ NonnullRefPtr<Core::Promise<Application::BrowsingDataSizes>> Application::estima
 
             sizes.site_data_size_since_requested_time = cookie_sizes.since_requested_time + storage_sizes.since_requested_time;
             sizes.total_site_data_size = cookie_sizes.total + storage_sizes.total;
+            load_saved_space_profiles();
+            for (auto const& profile : m_space_profiles) {
+                auto cookies = profile.value->cookie_jar->estimate_storage_size_accessed_since(since);
+                auto storage = profile.value->storage_jar->estimate_storage_size_accessed_since(since);
+                sizes.site_data_size_since_requested_time += cookies.since_requested_time + storage.since_requested_time;
+                sizes.total_site_data_size += cookies.total + storage.total;
+            }
 
             promise->resolve(sizes);
         })
@@ -2948,11 +2964,7 @@ NonnullRefPtr<Core::Promise<Empty>> Application::clear_browsing_data(ClearBrowsi
         m_file_downloader.remove_inactive_downloads_created_since(options.since);
 
     if (options.delete_site_data == ClearBrowsingDataOptions::Delete::Yes) {
-        Core::DirIterator directories { LexicalPath::join(profile().paths().data, "SpaceProfiles"sv).string(), Core::DirIterator::SkipParentAndBaseDir };
-        while (directories.has_next()) {
-            if (auto id = directories.next_path().to_number<u64>(); id.has_value() && *id)
-                (void)session_for_new_view(IsPrivate::No, *id);
-        }
+        load_saved_space_profiles();
         for (auto& profile : m_space_profiles) {
             profile.value->cookie_jar->expire_cookies_accessed_since(options.since);
             profile.value->storage_jar->remove_items_accessed_since(options.since);
