@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-check-${{ github.ref }}
+  group: desktop-check-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -56,19 +56,29 @@ jobs:
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             "-DPython3_EXECUTABLE=$pythonLocation/bin/python" \
             -DLADYBIRD_ENABLE_UPDATE_CHECK=OFF -DLADYBIRD_ENABLE_LTO=OFF \
-            -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF -DLADYBIRD_BUILD_QT=OFF \
+            -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF -DLADYBIRD_BUILD_QT=OFF -DLADYBIRD_BASELINE_CPU_TARGET=ON \
             -DBUILD_TESTING=ON -DBUILD_BROWSER_TESTS_ONLY=OFF
 
-      - name: Compile the frontend, Hub, profile implementation and regression tests
+      - name: Compile the frontend, Hub and profile implementation
         run: |
           ninja -C Build -t targets all > "$RUNNER_TEMP/ninja-targets"
           awk -F': ' '
             /UI\/Qt\/CMakeFiles\/ladybird_impl\.dir\/.*\.o: CXX/ ||
             /Services\/Hub\/CMakeFiles\/.*\.o: CXX/ ||
-            /Libraries\/LibWebView\/CMakeFiles\/LibWebView\.dir\/.*\.o: CXX/ ||
-            /\/(TestLadyarcSpaceProfiles|TestSessionStore|TestRequestServerClientSessions|TestRequestServerDiskCaches)\.cpp\.o: CXX/ {
+            /Libraries\/LibWebView\/CMakeFiles\/LibWebView\.dir\/.*\.o: CXX/ {
               print $1
             }' "$RUNNER_TEMP/ninja-targets" > "$RUNNER_TEMP/desktop-objects"
           grep -q '/BrowserWindow.cpp.o$' "$RUNNER_TEMP/desktop-objects"
-          grep -q '/TestLadyarcSpaceProfiles.cpp.o$' "$RUNNER_TEMP/desktop-objects"
           xargs ninja -C Build -j3 -k12 < "$RUNNER_TEMP/desktop-objects"
+
+      - name: Compile the regression tests against the generated interfaces
+        working-directory: Build
+        run: |
+          # The GUI integration executable depends on the running browser's services.
+          # Their build and launch are covered by the native packaging workflow.
+          for test in TestLadyarcSpaceProfiles TestSessionStore TestRequestServerClientSessions TestRequestServerDiskCaches; do
+            object=$(awk -F': ' -v test="/$test.cpp.o" 'index($1, test) && $2 ~ /^CXX/ { print $1 }' "$RUNNER_TEMP/ninja-targets")
+            test -n "$object"
+            ninja -t commands -s "$object" | bash -e -o pipefail
+            test -f "$object"
+          done
