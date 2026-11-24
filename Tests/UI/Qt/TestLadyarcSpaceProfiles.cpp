@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDeadlineTimer>
+#include <QPushButton>
 #include <QSettings>
 #include <QThread>
 
@@ -85,5 +86,19 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return Error::from_string_literal("The two profiles did not record their own visits");
     if (work_history.entry_for_url(personal_url).has_value() || personal_history.entry_for_url(work_url).has_value())
         return Error::from_string_literal("History crossed a Space profile boundary");
+    auto& little = app->open_external_web_link(url("read.html"));
+    auto& second_little = app->open_external_web_link(url("read.html"));
+    auto* compact_tab = second_little.current_tab();
+    if (little.is_tabbed_window() || second_little.is_tabbed_window() || !compact_tab
+        || !wait_until([&] { return compact_tab->title() == "work/work"; }))
+        return Error::from_string_literal("An unrouted external link did not open in a compact window with its source profile");
+    for (auto* button : second_little.findChildren<QPushButton*>()) {
+        if (button->text() == "Open in Browser") {
+            button->click();
+            break;
+        }
+    }
+    if (window.current_tab() != compact_tab || compact_tab->title() != "work/work")
+        return Error::from_string_literal("Promoting a second Little Arc window did not keep its live tab in the full browser");
     return 0;
 }

@@ -248,7 +248,7 @@ public:
     static QString space_for_profile(u64 profile_id, QString preferred = {});
     Tab& open_url_in_space(URL::URL const&, QString const&);
     static QString external_route_key(URL::URL const&);
-    bool accepts_external_route() const { return is_private() == WebView::IsPrivate::No && m_is_popup_window == IsPopupWindow::No; }
+    bool is_tabbed_window() const { return m_is_popup_window == IsPopupWindow::No; }
     void set_compact_chrome();
     void peek_at_link(Web::HTML::PreparedNavigationDescriptor const&);
 

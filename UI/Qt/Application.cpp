@@ -1909,22 +1909,27 @@ void Application::open_new_tab()
     m_active_window->show_command_bar();
 }
 
+BrowserWindow* Application::tabbed_window(WebView::IsPrivate is_private) const
+{
+    auto matches = [is_private](BrowserWindow* window) {
+        return window && window->is_tabbed_window() && window->is_private() == is_private && window->isVisible();
+    };
+    if (matches(m_active_window))
+        return m_active_window;
+    for (auto* widget : QApplication::topLevelWidgets()) {
+        if (auto* window = qobject_cast<BrowserWindow*>(widget); matches(window))
+            return window;
+    }
+    return nullptr;
+}
+
 BrowserWindow& Application::open_external_web_link(URL::URL const& url)
 {
     auto space = desktop_preferences().value(BrowserWindow::external_route_key(url)).toString();
     if (space.isEmpty())
         return open_little_window(url);
 
-    auto* target = m_active_window;
-    if (!target || !target->accepts_external_route()) {
-        target = nullptr;
-        for (auto* widget : QApplication::topLevelWidgets()) {
-            if (auto* window = qobject_cast<BrowserWindow*>(widget); window && window->isVisible() && window->accepts_external_route()) {
-                target = window;
-                break;
-            }
-        }
-    }
+    auto* target = tabbed_window(WebView::IsPrivate::No);
     if (!target)
         target = &new_window({}, configuration_for_new_window());
     target->open_url_in_space(url, space);
@@ -1934,9 +1939,10 @@ BrowserWindow& Application::open_external_web_link(URL::URL const& url)
 
 BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsPrivate is_private)
 {
-    QPointer<BrowserWindow> source = m_active_window;
-    if (source && source->is_private() != is_private)
-        source = nullptr;
+    QPointer<BrowserWindow> source = tabbed_window(is_private);
+    auto space = m_active_window && m_active_window->is_private() == is_private
+        ? m_active_window->active_space()
+        : (source ? source->active_space() : QString {});
     auto* screen = source ? source->screen() : QGuiApplication::primaryScreen();
     auto bounds = screen->availableGeometry();
     auto size = QSize(640, 480).boundedTo(bounds.size());
@@ -1947,16 +1953,18 @@ BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsP
         .width = Web::DevicePixels { size.width() },
         .height = Web::DevicePixels { size.height() },
     };
-    auto& window = new_window({ url }, configuration, BrowserWindow::IsPopupWindow::Yes, is_private, {}, ShowWindow::No, {}, source ? source->active_space() : QString {});
+    auto& window = new_window({ url }, configuration, BrowserWindow::IsPopupWindow::Yes, is_private, {}, ShowWindow::No, {}, space);
     window.setWindowFlags(Qt::Window);
     window.set_compact_chrome();
     auto* keep = new QPushButton("Open in Browser", &window);
     window.statusBar()->addPermanentWidget(keep);
     QObject::connect(keep, &QPushButton::clicked, &window, [this, source, &window] {
         if (auto* tab = window.current_tab()) {
-            auto& target = source ? *source : new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, window.is_private());
-            window.move_tab_to_window(window.tab_index(tab), target, target.tab_count());
-            target.bring_to_front();
+            auto* target = source ? source.data() : tabbed_window(window.is_private());
+            if (!target)
+                target = &new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, window.is_private(), {}, ShowWindow::Yes, {}, tab->space_name());
+            window.move_tab_to_window(window.tab_index(tab), *target, target->tab_count());
+            target->bring_to_front();
         }
     });
     window.set_window_rect(configuration.x, configuration.y, configuration.width, configuration.height);

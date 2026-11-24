@@ -276,6 +276,7 @@ private:
     Tab* activate_tab_with_url(URL::URL const&, URL::ExcludeFragment) const;
     void activate_or_open_tab_with_url(URL::URL const&);
 
+    BrowserWindow* tabbed_window(WebView::IsPrivate) const;
     BrowserWindow* window_of_view(u64 view_id) const;
     BrowserWindow* window_for_new_tab(Optional<u64> source_view_id, WebView::IsPrivate) const;
     void open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id, Web::HTML::ActivateTab);
