@@ -145,7 +145,7 @@ void BrowserWindow::initialize_spaces()
         Optional<String> favicon;
         if (auto bookmark = store.find_bookmark_by_url(current_tab()->url()); bookmark.has_value())
             favicon = bookmark->bookmark().favicon_hash;
-        store.add_bookmark(current_tab()->url(), ak_string_from_qstring(current_tab()->title()), move(favicon), id);
+        store.add_bookmark(current_tab()->url(), ak_string_from_qstring(current_tab()->title()), AK::move(favicon), id);
     });
     refresh_favorites();
     auto* create = menu->addAction("New Space…");

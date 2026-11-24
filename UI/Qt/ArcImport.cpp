@@ -65,7 +65,7 @@ void BrowserWindow::import_arc_spaces()
             name = QString("%1 (%2)").arg(space.title.left(62)).arg(suffix);
         settings.setValue("pinned-folders/" + QString::fromLatin1(QUrl::toPercentEncoding(name)), qstring_from_ak_string(id));
         m_spaces.append(name);
-        store.add_imported_folder({ move(id), now, now, BookmarkItem::Folder { ak_string_from_qstring(name + " · Pinned"), convert_pins(space.id, space.pins, now) } });
+        store.add_imported_folder({ AK::move(id), now, now, BookmarkItem::Folder { ak_string_from_qstring(name + " · Pinned"), convert_pins(space.id, space.pins, now) } });
         ++imported;
     }
     if (imported && !m_space_sidebar)
