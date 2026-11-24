@@ -788,6 +788,8 @@ static bool is_browser_reserved_shortcut(QKeyEvent const& event)
     auto const modifiers = event.modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier | Qt::MetaModifier);
     auto const key = event.key();
 
+    if (modifiers == (Qt::ControlModifier | Qt::AltModifier) && (key == Qt::Key_BracketLeft || key == Qt::Key_BracketRight))
+        return true;
     if (modifiers == (Qt::ControlModifier | Qt::AltModifier) && key == Qt::Key_N)
         return true;
     if (modifiers == Qt::ControlModifier && key == Qt::Key_T)

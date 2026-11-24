@@ -26,10 +26,16 @@
 #include <UI/Qt/WindowCloseCoordinator.h>
 #include <UI/Qt/WindowScreenObserver.h>
 
+#include <QHash>
 #include <QMainWindow>
+#include <QStringList>
 #include <QPushButton>
 
+class QComboBox;
+class QDockWidget;
 class QIcon;
+class QListWidget;
+class QWheelEvent;
 class QPropertyAnimation;
 class QTimer;
 class QToolButton;
@@ -234,6 +240,7 @@ public:
     }
 
     void update_tabs_display();
+    void assign_space(Tab&, QString const&);
     void set_compact_chrome();
     void peek_at_link(Web::HTML::PreparedNavigationDescriptor const&);
 
@@ -306,6 +313,14 @@ private:
     void begin_window_close_preflight(Function<void(bool approved)> on_complete = {});
 
     void set_current_tab(Tab* tab);
+    void initialize_spaces();
+    void create_space_sidebar();
+    void switch_space(QString const&);
+    void cycle_space(int delta);
+    void refresh_space_sidebar();
+    void show_tab_in_space(int position);
+    void cycle_visible_tab(int delta);
+    bool handle_space_swipe(QWheelEvent&);
     Qt::Edges resize_edges_for_position(QPoint const&) const;
     Optional<Qt::CursorShape> resize_cursor_for_edges(Qt::Edges) const;
     void update_resize_cursor(QPoint const&);
@@ -345,6 +360,16 @@ private:
 
     WebView::IsPrivate m_is_private { WebView::IsPrivate::No };
 
+    QStringList m_spaces { QStringLiteral("Main") };
+    QString m_active_space { QStringLiteral("Main") };
+    QHash<QString, QPointer<Tab>> m_last_space_tab;
+    QDockWidget* m_space_sidebar { nullptr };
+    QComboBox* m_space_picker { nullptr };
+    QListWidget* m_space_tab_list { nullptr };
+    QList<QPointer<Tab>> m_listed_space_tabs;
+    int m_space_swipe_distance { 0 };
+    bool m_space_swipe_consumed { false };
+    bool m_space_refresh_pending { false };
     bool m_compact_chrome { false };
     TabWidget* m_tabs_container { nullptr };
     Tab* m_current_tab { nullptr };

@@ -103,6 +103,8 @@ public:
     void ensure_loaded();
 
     URL::URL url() const;
+    QString const& space_name() const { return m_space_name; }
+    void set_space_name(QString name) { m_space_name = AK::move(name); }
 
     Optional<SessionTabId> session_tab_id() const;
     void set_session_tab_id(SessionTabId);
@@ -258,6 +260,7 @@ private:
     bool m_has_had_real_size { false };
     bool m_is_updating_chrome_style { false };
 
+    QString m_space_name { QStringLiteral("Main") };
     QMenu* m_context_menu { nullptr };
     QMenu* m_select_dropdown { nullptr };
 

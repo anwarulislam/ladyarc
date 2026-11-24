@@ -2044,6 +2044,7 @@ void Application::reopen_recently_closed_tab(BrowserWindow* target_window, Optio
     for (auto& closed_tab : unit.tabs) {
         auto location = next_insertion_index.has_value() ? BrowserWindow::TabLocation::at_index(*next_insertion_index) : BrowserWindow::TabLocation::end();
         auto& tab = window->create_new_tab(Web::HTML::ActivateTab::No, location);
+        window->assign_space(tab, closed_tab.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(closed_tab.space_name));
         if (next_insertion_index.has_value())
             ++*next_insertion_index;
 

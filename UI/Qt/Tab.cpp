@@ -937,7 +937,7 @@ void Tab::create_tab_context_menu()
         if (auto* current = m_window->current_tab(); current && m_window->tab_index(current) > tab_index() && !current->is_pinned())
             m_window->activate_tab(tab_index());
         for (auto i = m_window->tab_count() - 1; i > tab_index(); i--) {
-            if (!m_window->tab_at(i)->is_pinned())
+            if (m_window->tab_at(i)->space_name() == space_name() && !m_window->tab_at(i)->is_pinned())
                 m_window->request_to_close_tab(i);
         }
     });
@@ -948,7 +948,7 @@ void Tab::create_tab_context_menu()
         if (auto* current = m_window->current_tab(); current && current != this && !current->is_pinned())
             m_window->activate_tab(tab_index());
         for (auto i = m_window->tab_count() - 1; i >= 0; i--) {
-            if (i == tab_index() || m_window->tab_at(i)->is_pinned())
+            if (i == tab_index() || m_window->tab_at(i)->space_name() != space_name() || m_window->tab_at(i)->is_pinned())
                 continue;
 
             m_window->request_to_close_tab(i);

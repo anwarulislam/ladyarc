@@ -3592,6 +3592,12 @@ void TabWidget::set_new_tab_action(QAction* action)
     connect(m_new_tab_button, &QToolButton::clicked, action, &QAction::trigger);
 }
 
+void TabWidget::set_space_sidebar_visible(bool visible)
+{
+    m_tab_bar->setVisible(!visible);
+    update_tab_chrome_visibility();
+}
+
 void TabWidget::set_compact_tab_strip()
 {
     m_compact_tab_strip = true;

@@ -45,6 +45,7 @@
 #include <QApplication>
 #include <QContextMenuEvent>
 #include <QCursor>
+#include <QDockWidget>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -401,6 +402,7 @@ BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow
     initialize_application_actions();
     initialize_application_menu();
     initialize_ladybird_menu();
+    initialize_spaces();
     initialize_window_context_menu();
     update_chrome_style();
 
@@ -431,6 +433,7 @@ BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow
     QObject::connect(m_tabs_container, &TabWidget::tab_close_requested, this, &BrowserWindow::request_to_close_tab);
     QObject::connect(m_tabs_container->tab_bar(), &QTabBar::tabMoved, this, [this](int, int) {
         sync_session_tab_order();
+        refresh_space_sidebar();
     });
 
     if (hub_view_id.has_value()) {
@@ -517,14 +520,12 @@ void BrowserWindow::initialize_application_actions()
 
     for (int i = 0; i < 8; ++i) {
         new QShortcut(QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_1 + i)), this, [this, i]() {
-            if (m_tabs_container->count() > 1)
-                m_tabs_container->set_current_index(min(i, m_tabs_container->count() - 1));
+            show_tab_in_space(i);
         });
     }
 
     new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_9), this, [this]() {
-        if (m_tabs_container->count() > 1)
-            m_tabs_container->set_current_index(m_tabs_container->count() - 1);
+        show_tab_in_space(-1);
     });
 }
 
@@ -704,12 +705,12 @@ void BrowserWindow::peek_at_link(Web::HTML::PreparedNavigationDescriptor const& 
 void BrowserWindow::update_tabs_display()
 {
     auto const& settings = Application::settings().tab_settings();
-    m_tabs_container->set_vertical_tabs_enabled(!m_compact_chrome && settings.vertical_tabs_enabled);
+    m_tabs_container->set_vertical_tabs_enabled(!m_space_sidebar && !m_compact_chrome && settings.vertical_tabs_enabled);
     m_tabs_container->set_vertical_tabs_expanded(settings.vertical_tabs_expanded);
     m_tabs_container->set_vertical_tabs_expand_on_hover(settings.vertical_tabs_expand_on_hover);
     // NB: With everything in the sidebar, the sidebar is on the left, beside the traffic lights.
     m_tabs_container->set_vertical_tabs_position(settings.everything_in_sidebar ? WebView::VerticalTabsPosition::Left : settings.vertical_tabs_position);
-    m_tabs_container->set_everything_in_sidebar(!m_compact_chrome && settings.everything_in_sidebar);
+    m_tabs_container->set_everything_in_sidebar(!m_space_sidebar && !m_compact_chrome && settings.everything_in_sidebar);
 }
 
 void BrowserWindow::rebuild_bookmarks_menu()
@@ -819,6 +820,7 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
         };
         auto* tab = new Tab(this, AK::move(deferred_tab));
         tab->set_pinned(restored.pinned);
+        tab->set_space_name(restored.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(restored.space_name));
         m_tabs_container->insert_tab(index, tab, tab->title());
         initialize_tab(tab);
         tab_title_changed(m_tabs_container->index_of(tab), tab->title());
@@ -828,6 +830,7 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
     auto* tab = new Tab(this);
     // The tab already has a row, so initialize_tab() doesn't register a new one.
     tab->set_session_tab_id(restored.tab_id);
+    tab->set_space_name(restored.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(restored.space_name));
     tab->set_pinned(restored.pinned);
 
     if (!m_current_tab)
@@ -848,6 +851,7 @@ Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, Optional
         return create_new_tab(activate_tab, TabLocation::end());
 
     auto* tab = new Tab(this, hub_view_id);
+    tab->set_space_name(m_active_space);
 
     // FIXME: Merge with other overload
     if (m_current_tab == nullptr) {
@@ -882,6 +886,7 @@ Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, TabLocat
     cancel_window_close_preflight();
 
     auto* tab = new Tab(this);
+    tab->set_space_name(location.tab() ? location.tab()->space_name() : m_active_space);
 
     if (m_current_tab == nullptr) {
         set_current_tab(tab);
@@ -931,6 +936,7 @@ void BrowserWindow::initialize_tab(Tab* tab)
             .initial_url = {},
             .insertion_index = insertion_index >= 0 ? Optional<i64> { insertion_index } : Optional<i64> {},
             .is_active = m_current_tab == tab ? SessionStore::IsActive::Yes : SessionStore::IsActive::No,
+            .space_name = ak_string_from_qstring(tab->space_name()),
         };
         auto session_tab_id = session().tab_opened(AK::move(opened));
         if (session_tab_id.is_error())
@@ -955,6 +961,11 @@ void BrowserWindow::initialize_tab(Tab* tab)
         QObject::connect(tab, &Tab::loaded, this, [this, tab] { initialize_tab_view(tab); }, Qt::SingleShotConnection);
 
     initialize_tab_buttons(tab);
+    if (!m_spaces.contains(tab->space_name()))
+        m_spaces.append(tab->space_name());
+    if (m_spaces.size() > 1 && !m_space_sidebar)
+        create_space_sidebar();
+    refresh_space_sidebar();
 }
 
 void BrowserWindow::initialize_tab_view(Tab* tab)
@@ -1002,6 +1013,7 @@ void BrowserWindow::adopt_tab(Tab& tab, int index)
     index = constrain_insertion_index(index, tab.is_pinned());
 
     tab.set_window(*this);
+    assign_space(tab, m_active_space);
     m_tabs_container->insert_tab(index, &tab, "New Tab");
     if (tab.is_loaded())
         tab.view().finish_window_move();
@@ -1063,6 +1075,7 @@ void BrowserWindow::move_tab_to_window(int index, BrowserWindow& target_window, 
         set_current_tab(m_tabs_container->count() > 0 ? m_tabs_container->tab(m_tabs_container->current_index()) : nullptr);
 
     target_window.adopt_tab(*tab, target_index);
+    refresh_space_sidebar();
     sync_session_tab_order();
 
     if (m_tabs_container->count() == 0)
@@ -1126,6 +1139,11 @@ void BrowserWindow::set_current_tab(Tab* tab)
     }
 
     m_current_tab = tab;
+    if (tab) {
+        m_active_space = tab->space_name();
+        m_last_space_tab.insert(m_active_space, tab);
+    }
+    refresh_space_sidebar();
     m_background_tabs_from_current_tab.clear();
 
     if (m_current_tab) {
@@ -1232,6 +1250,7 @@ bool BrowserWindow::close_tab(int index, SessionStore::KeepForReopening keep_for
     }
     Application::the().update_reopen_recently_closed_actions();
     tab->deleteLater();
+    refresh_space_sidebar();
 
     if (m_tabs_container->count() == 0)
         close();
@@ -1286,6 +1305,7 @@ void BrowserWindow::discard_tab(Tab& tab)
     }
 
     uninitialize_tab(&tab);
+    discarded_tab->set_space_name(tab.space_name());
     m_tabs_container->replace_tab(index, discarded_tab);
     initialize_tab(discarded_tab);
     tab_title_changed(index, discarded_tab->title());
@@ -1356,6 +1376,7 @@ void BrowserWindow::pinned_state_changed(Tab& tab)
             dbgln("Unable to record the tab's pin in the session store: {}", result.error());
     }
     update_tab_close_button(tab);
+    refresh_space_sidebar();
     m_tabs_container->update_tab_layout();
 }
 
@@ -1420,6 +1441,7 @@ void BrowserWindow::tab_title_changed(int index, QString const& title)
 {
     m_tabs_container->set_tab_text(index, title);
     m_tabs_container->set_tab_tooltip(index, title);
+    refresh_space_sidebar();
 
     if (m_tabs_container->current_index() == index)
         update_window_title(title);
@@ -1430,6 +1452,7 @@ void BrowserWindow::tab_favicon_changed(int index, QIcon const& icon)
     if (index < 0)
         return;
     m_tabs_container->set_tab_icon(index, icon);
+    refresh_space_sidebar();
 }
 
 void BrowserWindow::update_chrome_style()
@@ -1694,24 +1717,12 @@ void BrowserWindow::move_focus_between_chrome_and_page()
 
 void BrowserWindow::open_next_tab()
 {
-    if (m_tabs_container->count() <= 1)
-        return;
-
-    auto next_index = m_tabs_container->current_index() + 1;
-    if (next_index >= m_tabs_container->count())
-        next_index = 0;
-    m_tabs_container->set_current_index(next_index);
+    cycle_visible_tab(1);
 }
 
 void BrowserWindow::open_previous_tab()
 {
-    if (m_tabs_container->count() <= 1)
-        return;
-
-    auto next_index = m_tabs_container->current_index() - 1;
-    if (next_index < 0)
-        next_index = m_tabs_container->count() - 1;
-    m_tabs_container->set_current_index(next_index);
+    cycle_visible_tab(-1);
 }
 
 void BrowserWindow::show_find_in_page()
@@ -1780,6 +1791,8 @@ void BrowserWindow::place_popup_window(Web::HTML::WebViewHints const& hints, QSc
 void BrowserWindow::enter_fullscreen()
 {
     m_tabs_container->set_tab_bar_visible(false);
+    if (m_space_sidebar)
+        m_space_sidebar->hide();
 
     // The window comes back in the state it had: A window the user already made full screen stays so after the page
     // leaves full screen, and a maximized one is maximized again.
@@ -1796,6 +1809,8 @@ void BrowserWindow::exit_fullscreen()
         return;
 
     m_tabs_container->set_tab_bar_visible(true);
+    if (m_space_sidebar)
+        m_space_sidebar->show();
 
     // A full-screen window is no longer maximized, so it has to ask to be maximized again. On macOS, the window is
     // zoomed again as it leaves full screen, and asking for the normal state would then unzoom it.
@@ -1855,6 +1870,9 @@ bool BrowserWindow::eventFilter(QObject* object, QEvent* event)
     auto* widget = as_if<QWidget>(object);
     if (!widget || widget->window() != this)
         return QMainWindow::eventFilter(object, event);
+    if (m_space_sidebar && m_space_sidebar->isAncestorOf(widget) && event->type() == QEvent::Wheel
+        && handle_space_swipe(*static_cast<QWheelEvent*>(event)))
+        return true;
     if (!has_chrome_in_titlebar())
         return QMainWindow::eventFilter(object, event);
 

@@ -7,7 +7,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Build an installable browser from a published release. The Ladyarc workflow also builds development snapshots on changes to the browser. Check both platform jobs and their packages before marking this complete.
 - [x] Peek at a web link from its context menu. The preview opens over the source window. Done or Escape dismisses it. Open as Tab moves the live preview into the source window.
 - [x] Open an external web link in a Little Arc window. File → New Little Arc Window starts a quick search (Command+Option+N on macOS, Ctrl+Alt+N on Linux). Open in Browser keeps the live tab.
-- [ ] Create Spaces with their own open and pinned tabs. Switch by swipe and keyboard.
+- [x] Choose Spaces → New Space in the browser menu. Switch with the sidebar picker, a sideways trackpad swipe over its tabs, or Command+Option+[ / ] (Ctrl+Alt+[ / ] on Linux). Each Space keeps its open and pinned tabs. Session restore and Reopen Closed Tab retain Space membership.
 
 ## Organization
 
@@ -33,6 +33,8 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Drag completed files out of the downloads list.
 
 ## Compatibility and extras
+
+Desktop Arc interactions have implementation priority. Cross-device services, mobile, DRM, browser extensions and platform credentials remain tracked here.
 
 - [ ] Import Arc Spaces, pinned tabs and folders.
 - [ ] Run Chrome Web Store extensions, including a password manager, blocker and page modifier.

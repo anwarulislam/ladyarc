@@ -30,6 +30,7 @@ static constexpr u32 SESSIONS_SCHEMA_UPGRADE_INSECURE_REQUESTS_VERSION = 9u;
 static constexpr u32 SESSIONS_SCHEMA_RESTART_VERSION = 10u;
 static constexpr u32 SESSIONS_SCHEMA_LOCAL_FILE_CONTENT_VERSION = 11u;
 static constexpr u32 SESSIONS_SCHEMA_LOCAL_FILE_ROOTS_VERSION = 12u;
+static constexpr u32 SESSIONS_SCHEMA_SPACES_VERSION = 13u;
 
 // After this many unclean exits in a row, launch restore stops, so a session that crashes the browser doesn't restore
 // into the same crash every time.
@@ -314,6 +315,10 @@ ErrorOr<Database::MigrationOutcome> SessionStore::PersistedStorage::migrate_sche
                 ALTER TABLE SessionEntries ADD COLUMN local_file_root_scope INTEGER;
             )#"sv,
         },
+        {
+            .version = SESSIONS_SCHEMA_SPACES_VERSION,
+            .sql = "ALTER TABLE SessionTabs ADD COLUMN space_name TEXT NOT NULL DEFAULT '';"sv,
+        },
     });
 
     return database.migrate("Sessions"sv, migrations, mode);
@@ -331,8 +336,9 @@ ErrorOr<SessionStore::PersistedStorage> SessionStore::PersistedStorage::create(D
 
     Statements statements {};
     statements.insert_session = TRY(database.prepare_statement("INSERT INTO Sessions (id, kind, closed_time, close_sequence, source_window_id, source_tab_index, origin, active_tab_index) VALUES (:id, :kind, :closed_time, :close_sequence, :source_window_id, :source_tab_index, :origin, :active_tab_index);"sv));
-    statements.insert_tab = TRY(database.prepare_statement("INSERT INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index);"sv));
-    statements.insert_tab_if_missing = TRY(database.prepare_statement("INSERT OR IGNORE INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index);"sv));
+    statements.insert_tab = TRY(database.prepare_statement("INSERT INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name);"sv));
+    statements.insert_tab_if_missing = TRY(database.prepare_statement("INSERT OR IGNORE INTO SessionTabs (id, session_id, tab_ordinal, active_url, current_used_step_index, space_name) VALUES (:id, :session_id, :tab_ordinal, :active_url, :current_used_step_index, :space_name);"sv));
+    statements.update_tab_space = TRY(database.prepare_statement("UPDATE SessionTabs SET space_name = :space_name WHERE id = :id;"sv));
     statements.update_tab_row = TRY(database.prepare_statement("UPDATE SessionTabs SET active_url = :active_url, current_used_step_index = :current_used_step_index, pinned = :pinned WHERE id = :id;"sv));
     statements.update_tab_placement = TRY(database.prepare_statement("UPDATE SessionTabs SET session_id = :session_id, tab_ordinal = :tab_ordinal, pinned = :pinned WHERE id = :id;"sv));
     statements.update_tab_parent = TRY(database.prepare_statement("UPDATE SessionTabs SET session_id = :session_id, tab_ordinal = :tab_ordinal WHERE id = :id;"sv));
@@ -348,7 +354,7 @@ ErrorOr<SessionStore::PersistedStorage> SessionStore::PersistedStorage::create(D
     statements.select_max_tab_id = TRY(database.prepare_statement("SELECT MAX(id) AS maximum_id FROM SessionTabs;"sv));
     statements.select_max_close_sequence = TRY(database.prepare_statement("SELECT MAX(close_sequence) AS maximum_id FROM Sessions;"sv));
     statements.select_closed_sessions = TRY(database.prepare_statement("SELECT id, closed_time, close_sequence, source_window_id, source_tab_index, origin, active_tab_index, x, y, width, height, maximized FROM Sessions WHERE kind = :kind ORDER BY close_sequence DESC, closed_time DESC, id DESC LIMIT :max_units;"sv));
-    statements.select_session_tabs = TRY(database.prepare_statement("SELECT id, tab_ordinal, active_url, current_used_step_index, pinned FROM SessionTabs WHERE session_id = :session_id ORDER BY tab_ordinal;"sv));
+    statements.select_session_tabs = TRY(database.prepare_statement("SELECT id, tab_ordinal, active_url, current_used_step_index, pinned, space_name FROM SessionTabs WHERE session_id = :session_id ORDER BY tab_ordinal;"sv));
     statements.select_max_activation_sequence = TRY(database.prepare_statement("SELECT MAX(activation_sequence) AS maximum_id FROM Sessions;"sv));
     statements.update_session_geometry = TRY(database.prepare_statement("UPDATE Sessions SET x = :x, y = :y, width = :width, height = :height, maximized = :maximized WHERE id = :id;"sv));
     statements.select_open_sessions = TRY(database.prepare_statement("SELECT id, active_tab_index, activation_sequence, x, y, width, height, maximized FROM Sessions WHERE kind = :open_window_kind ORDER BY activation_sequence, id;"sv));
@@ -450,6 +456,12 @@ void SessionStore::TransientStorage::set_tab_state(SessionTabId tab_id, Optional
     tab->value.history = move(history);
     tab->value.current_used_step_index = tab->value.history.has_value() ? tab->value.history->current_used_step_index : 0;
     tab->value.dirty = dirty;
+}
+
+void SessionStore::TransientStorage::set_tab_space(SessionTabId id, String name)
+{
+    if (auto tab = m_tabs.find(id); tab != m_tabs.end())
+        tab->value.space_name = move(name);
 }
 
 bool SessionStore::TransientStorage::set_tab_pinned(SessionTabId tab_id, bool pinned)
@@ -762,6 +774,7 @@ ErrorOr<void> SessionStore::PersistedStorage::open_tab(OpenTabWrite const& write
             TRY(bind("tab_ordinal"sv, write.tab.tab_ordinal));
             TRY(bind("active_url"sv, persistable_active_url(write.tab.url)));
             TRY(bind("current_used_step_index"sv, write.tab.current_used_step_index));
+            TRY(bind("space_name"sv, write.tab.space_name));
             return {};
         }));
         return apply_window_metadata(write.window);
@@ -795,6 +808,7 @@ ErrorOr<void> SessionStore::PersistedStorage::close_tab(ClosedTabWrite const& wr
             TRY(bind("tab_ordinal"sv, 0));
             TRY(bind("active_url"sv, persistable_active_url(write.tab.url)));
             TRY(bind("current_used_step_index"sv, write.tab.current_used_step_index));
+            TRY(bind("space_name"sv, write.tab.space_name));
             return {};
         }));
         TRY(database->try_execute_bound_statement(statements.update_tab_parent, [&](auto& bind) -> ErrorOr<void> {
@@ -956,6 +970,7 @@ ErrorOr<Vector<SessionStore::RecoveredTab>> SessionStore::PersistedStorage::read
                     .url = url.release_value(),
                     .current_used_step_index = TRY(row.read_integer<size_t>("current_used_step_index"sv)),
                     .pinned = TRY(row.read_integer<i64>("pinned"sv)) != 0,
+                    .space_name = TRY(row.read_text("space_name"sv, 512)),
                 };
             }();
             if (tab.is_error())
@@ -1316,6 +1331,7 @@ ErrorOr<Vector<SessionStore::ClosedUnit>> SessionStore::PersistedStorage::load_c
                             .current_used_step_index = current_used_step_index,
                             .history = {},
                             .pinned = pinned,
+                            .space_name = TRY(row.read_text("space_name"sv, 512)),
                         });
                         return {};
                     }();
@@ -1371,6 +1387,7 @@ ErrorOr<Vector<ClosedSessionTab>> SessionStore::PersistedStorage::take_closed_un
             URL::URL active_url;
             size_t current_used_step_index { 0 };
             bool pinned { false };
+            String space_name {};
         };
         Vector<TabRow> tab_rows;
         TRY(database->try_execute_bound_statement(
@@ -1390,6 +1407,7 @@ ErrorOr<Vector<ClosedSessionTab>> SessionStore::PersistedStorage::take_closed_un
                         .active_url = url.release_value(),
                         .current_used_step_index = current_used_step_index,
                         .pinned = TRY(row.read_integer<i64>("pinned"sv)) != 0,
+                        .space_name = TRY(row.read_text("space_name"sv, 512)),
                     };
                 }();
                 // Skip corrupt tabs without making the closed unit unreopenable.
@@ -1404,6 +1422,7 @@ ErrorOr<Vector<ClosedSessionTab>> SessionStore::PersistedStorage::take_closed_un
                 .active_url = tab_row.active_url,
                 .history = history.is_error() ? Optional<WebView::SessionHistorySnapshot> {} : Optional<WebView::SessionHistorySnapshot> { history.release_value() },
                 .pinned = tab_row.pinned,
+                .space_name = tab_row.space_name,
             });
         }
         return database->try_execute_bound_statement(statements.delete_session, [&](auto& bind) -> ErrorOr<void> {
@@ -1592,9 +1611,9 @@ ErrorOr<void> SessionStore::run_startup_recovery(UnixDateTime recovered_at, Sess
         m_transient_storage.open_window(window.id);
         RestoredSessionWindow restored { .window_id = window.id, .tabs = {}, .active_tab_index = window.active_tab_index, .geometry = window.geometry };
         for (auto& tab : window.tabs) {
-            restored.tabs.append({ .tab_id = tab.id, .url = tab.url, .pinned = tab.pinned });
+            restored.tabs.append({ .tab_id = tab.id, .url = tab.url, .pinned = tab.pinned, .space_name = tab.space_name });
             (void)m_transient_storage.open_tab(window.id, tab.id,
-                OpenTab { .window_id = window.id, .url = move(tab.url), .current_used_step_index = tab.current_used_step_index, .history = {}, .dirty = false, .pinned = tab.pinned });
+                OpenTab { .window_id = window.id, .url = move(tab.url), .current_used_step_index = tab.current_used_step_index, .history = {}, .dirty = false, .pinned = tab.pinned, .space_name = tab.space_name });
         }
         if (auto active_tab_index = index_as_size(window.active_tab_index); active_tab_index.has_value() && *active_tab_index < restored.tabs.size())
             m_transient_storage.set_active_tab(restored.tabs[*active_tab_index].tab_id);
@@ -1676,6 +1695,7 @@ SessionStore::TabWrite SessionStore::tab_write_for(SessionTabId tab_id, OpenTab 
         .snapshot_disposition = SnapshotDisposition::Preserve,
         .snapshot = nullptr,
         .pinned = tab.pinned,
+        .space_name = tab.space_name,
     };
     if (tab.dirty) {
         if (is_storable(tab.history)) {
@@ -1834,13 +1854,14 @@ ErrorOr<SessionTabId> SessionStore::tab_opened(TabOpened opened)
                 .current_used_step_index = 0,
                 .snapshot_disposition = SnapshotDisposition::Preserve,
                 .snapshot = nullptr,
+                .space_name = opened.space_name,
             },
             .window = move(metadata),
         }));
     }
 
     (void)m_transient_storage.open_tab(resolved_window_id, tab_id,
-        OpenTab { .window_id = resolved_window_id, .url = move(opened.initial_url), .current_used_step_index = 0, .history = {}, .dirty = false }, insert_at);
+        OpenTab { .window_id = resolved_window_id, .url = move(opened.initial_url), .current_used_step_index = 0, .history = {}, .dirty = false, .space_name = move(opened.space_name) }, insert_at);
     if (opened.is_active == IsActive::Yes)
         m_transient_storage.set_active_tab(tab_id);
     if (m_persisted_storage.has_value())
@@ -1877,6 +1898,19 @@ ErrorOr<void> SessionStore::tab_pinned_changed(SessionTabId tab_id, bool pinned)
     if (!m_transient_storage.set_tab_pinned(tab_id, pinned))
         return {};
     return drain_window_metadata();
+}
+
+ErrorOr<void> SessionStore::set_tab_space(SessionTabId id, String name)
+{
+    if (m_persisted_storage.has_value()) {
+        auto& storage = *m_persisted_storage;
+        TRY(storage.database->try_execute_bound_statement(storage.statements.update_tab_space, [&](auto& bind) -> ErrorOr<void> {
+            TRY(bind("space_name"sv, name));
+            return bind("id"sv, id);
+        }));
+    }
+    m_transient_storage.set_tab_space(id, move(name));
+    return {};
 }
 
 void SessionStore::tab_moved(TabMoved moved)
@@ -1927,6 +1961,7 @@ void SessionStore::append_closed_tab_unit(PendingTabClose const& pending)
         .current_used_step_index = mirror_step_index,
         .history = m_persisted_storage.has_value() ? Optional<WebView::SessionHistorySnapshot> {} : pending.tab.history,
         .pinned = pending.tab.pinned,
+        .space_name = pending.tab.space_name,
     });
     m_transient_storage.append_closed_unit(move(unit));
 }
@@ -1955,6 +1990,7 @@ void SessionStore::append_closed_window_unit(PendingWindowClose const& pending)
             .current_used_step_index = mirror_step_index,
             .history = m_persisted_storage.has_value() ? Optional<WebView::SessionHistorySnapshot> {} : member.tab.history,
             .pinned = member.tab.pinned,
+            .space_name = member.tab.space_name,
         });
     }
     m_transient_storage.append_closed_unit(move(unit));
@@ -2394,7 +2430,7 @@ ErrorOr<Optional<ClosedSessionUnit>> SessionStore::take_closed_unit(SessionWindo
     } else {
         auto taken = m_transient_storage.take_closed_unit(unit_id).release_value();
         for (auto& tab : taken.tabs)
-            result.tabs.append({ .active_url = move(tab.active_url), .history = move(tab.history), .pinned = tab.pinned });
+            result.tabs.append({ .active_url = move(tab.active_url), .history = move(tab.history), .pinned = tab.pinned, .space_name = tab.space_name });
     }
 
     if (result.tabs.is_empty())

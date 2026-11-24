@@ -349,6 +349,7 @@ public:
 
     void set_tab_bar_visible(bool visible);
     void set_compact_tab_strip();
+    void set_space_sidebar_visible(bool);
 
     enum class NotificationBarSlot : u8 {
         SandboxOff,
