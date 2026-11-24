@@ -29,6 +29,7 @@ add_library(ladybird_impl STATIC
     BrowserWindow.cpp
     ArcImport.cpp
     BrowserWindowArchive.cpp
+    BrowserWindowLiveFolders.cpp
     BrowserWindowSpaces.cpp
     CommandBar.cpp
     SpaceBookmarks.cpp

@@ -54,6 +54,7 @@ void BrowserWindow::initialize_spaces()
             create_space_sidebar();
         connect(menu->addAction("Import Arc Spaces…"), &QAction::triggered, this, &BrowserWindow::import_arc_spaces);
         initialize_archive(*menu);
+        initialize_live_folders(*menu);
     }
     auto* favorite = menu->addAction("Add Current Page to Favorites");
     connect(favorite, &QAction::triggered, this, [this] {
@@ -326,6 +327,16 @@ void BrowserWindow::create_space_sidebar()
                 Application::bookmark_store().remove_item(id);
         }
     });
+    m_live_folders = new QTreeWidget(panel);
+    m_live_folders->setHeaderHidden(true);
+    m_live_folders->setAccessibleName("Live folders");
+    layout->addWidget(m_live_folders);
+    connect(m_live_folders, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem* item, int) {
+        auto url = item->data(0, Qt::UserRole).toUrl();
+        if (!url.isEmpty())
+            new_tab_from_url(ak_url_from_qurl(url), Web::HTML::ActivateTab::Yes, TabLocation::end());
+    });
+    m_live_folders->hide();
     m_space_tab_list = new QListWidget(panel);
     m_space_tab_list->setAccessibleName("Tabs in this Space");
     m_space_tab_list->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -511,6 +522,8 @@ void BrowserWindow::refresh_space_sidebar()
         m_space_picker->setCurrentText(m_active_space);
         if (m_pinned_folders->property("space").toString() != m_active_space)
             refresh_pinned_folders();
+        if (m_live_folders->property("space").toString() != m_active_space)
+            refresh_live_folders();
         auto theme = QApplication::palette();
         if (auto color = space_color(); color.isValid()) {
             auto foreground = color.lightnessF() < 0.48 ? QColor(Qt::white) : QColor(Qt::black);

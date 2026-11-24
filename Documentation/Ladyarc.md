@@ -15,7 +15,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Assign profiles to Spaces and share a profile between Spaces.
 - [x] Spaces → Add Current Page to Favorites pins an icon above the Space picker in every window in the profile. Right-click an icon to remove it. The Favorites bookmark folder also supports editing and reordering.
 - [x] Pin Tab saves a bookmark in the current Space. Select a folder before choosing New Pinned Folder to nest it. Right-click a folder to pin the current page there. Activate a saved pin to return to it.
-- [ ] Subscribe a live folder to an external feed.
+- [x] Spaces → Live Folders subscribes to a public GitHub repository. Its latest open pull requests appear in the sidebar and refresh every ten minutes while viewing that Space. Open a pull request directly from its folder.
 - [x] Spaces → Auto-archive lets you choose 12 hours, one day, one week, or 30 days. Recover an archived page in its original Space from Archived Tabs. Archiving defaults to off and excludes private windows, pins, split panes, active media and pages requesting a before-unload check.
 - [x] Choose Space Color sets the sidebar color for a named Space. Use System Color follows the desktop theme again. Private windows keep their colors in memory.
 

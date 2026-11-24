@@ -78,6 +78,13 @@ u64 HubConnection::fetch_search_suggestions(String engine_name, String query, We
     return request_id;
 }
 
+void HubConnection::fetch_public_pull_requests(String owner, String repository, Function<void(RequestResponse)> callback)
+{
+    auto id = m_next_request_id++;
+    m_requests.set(id, move(callback));
+    async_fetch_public_pull_requests(id, move(owner), move(repository));
+}
+
 u64 HubConnection::post_report(URL::URL const& url, Vector<HTTP::Header> headers, ByteString body, Function<void(RequestResponse)> on_response)
 {
     auto request_id = m_next_request_id++;

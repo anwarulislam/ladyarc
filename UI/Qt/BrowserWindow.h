@@ -320,6 +320,8 @@ private:
     void initialize_spaces();
     void initialize_archive(QMenu&);
     void import_arc_spaces();
+    void initialize_live_folders(QMenu&);
+    void refresh_live_folders();
     void archive_inactive_tabs();
     void create_space_sidebar();
     void switch_space(QString const&);
@@ -381,6 +383,7 @@ private:
     QComboBox* m_space_picker { nullptr };
     QPointer<Tab> m_media_tab;
     QPushButton* m_media_play_pause { nullptr };
+    QTreeWidget* m_live_folders { nullptr };
     QTreeWidget* m_pinned_folders { nullptr };
     QListWidget* m_favorites_list { nullptr };
     QListWidget* m_space_tab_list { nullptr };

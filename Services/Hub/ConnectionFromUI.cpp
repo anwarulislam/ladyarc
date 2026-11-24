@@ -6,6 +6,8 @@
 
 #include <AK/AnyOf.h>
 #include <AK/Array.h>
+#include <AK/CharacterTypes.h>
+#include <LibURL/Parser.h>
 #include <Hub/Application.h>
 #include <Hub/ConnectionFromUI.h>
 #include <Hub/Proxies.h>
@@ -695,6 +697,32 @@ void ConnectionFromUI::fetch_search_suggestions(u64 request_id, String engine_na
 
     static constexpr Array response_header_names { "Content-Type"sv };
     start_request(request_id, "GET"sv, *url, request_headers, {}, HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials::Yes, is_private, response_header_names);
+}
+
+void ConnectionFromUI::fetch_public_pull_requests(u64 request_id, String owner, String repository)
+{
+    auto valid_segment = [](String const& segment) {
+        if (segment.is_empty() || segment.bytes().size() > 100 || segment == "."sv || segment == ".."sv)
+            return false;
+        for (auto c : segment.bytes()) {
+            if (!is_ascii_alphanumeric(c) && c != '-' && c != '_' && c != '.')
+                return false;
+        }
+        return true;
+    };
+    if (!valid_segment(owner) || !valid_segment(repository)) {
+        async_request_finished(request_id, true, {}, {}, {});
+        return;
+    }
+    auto url = URL::Parser::basic_parse(MUST(String::formatted("https://api.github.com/repos/{}/{}/pulls?state=open&per_page=15", owner, repository)));
+    if (!url.has_value()) {
+        async_request_finished(request_id, true, {}, {}, {});
+        return;
+    }
+    auto headers = HTTP::HeaderList::create();
+    headers->set({ "User-Agent"sv, "Ladyarc"sv });
+    headers->set({ "Accept"sv, "application/vnd.github+json"sv });
+    start_request(request_id, "GET"sv, *url, headers, {}, HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials::No, WebView::IsPrivate::No, {});
 }
 
 // NB: A report goes only to the report server, with no credentials, and with only the headers that reports carry.

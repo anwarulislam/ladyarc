@@ -41,6 +41,7 @@ public:
         ByteString body;
     };
     u64 fetch_search_suggestions(String engine_name, String query, WebView::IsPrivate, Function<void(RequestResponse)>);
+    void fetch_public_pull_requests(String owner, String repository, Function<void(RequestResponse)>);
     u64 post_report(URL::URL const&, Vector<HTTP::Header>, ByteString body, Function<void(RequestResponse)>);
     void stop_request(u64 request_id);
 
