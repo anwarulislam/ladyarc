@@ -376,7 +376,7 @@ void Bookmarks::open_url_in_new_window(String const& bookmark_id, WebView::IsPri
     if (auto* tab = Application::the().active_tab())
         tab->view().open_url_in_new_window(bookmark->bookmark().url, is_private);
     else
-        Application::the().open_url_in_new_window(bookmark->bookmark().url, is_private);
+        Application::the().open_url_in_new_window(bookmark->bookmark().url, is_private, {}, 0);
 }
 
 void Bookmarks::open_folder_in_new_tabs(String const& folder_id) const
