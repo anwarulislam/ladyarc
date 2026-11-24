@@ -12,7 +12,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 
 ## Organization
 
-- [x] Vertical sidebar. The tab layout menu offers left, right and all-in-sidebar layouts. Show Sidebar toggles its expanded state.
+- [x] Vertical sidebar. The tab layout menu offers left, right and all-in-sidebar layouts. Show Sidebar toggles its expanded state. Spaces → Show Spaces Sidebar also opens or hides the Space picker in a horizontal layout.
 - [x] Choose a profile when creating a Space. Type a new profile name to isolate cookies, local storage and browsing history, or pick an existing profile to share them. The sidebar switches between these Spaces in the same window. Opening a tab in another profile creates a fresh copy of its URL. Existing Spaces use the default profile.
 - [x] Spaces → Add Current Page to Favorites pins an icon above the Space picker in every window in the profile. Right-click an icon to remove it. The Favorites bookmark folder also supports editing and reordering.
 - [x] Pin Tab saves a bookmark in the current Space. Select a folder before choosing New Pinned Folder to nest it. Right-click a folder to pin the current page there. Activate a saved pin to return to it.

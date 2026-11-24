@@ -88,6 +88,19 @@ void BrowserWindow::initialize_spaces()
         return;
     auto* menu = m_ladybird_menu->addMenu("Spaces");
     menuBar()->addMenu(menu);
+    auto* sidebar = menu->addAction("Show Spaces Sidebar");
+    sidebar->setCheckable(true);
+    connect(menu, &QMenu::aboutToShow, this, [this, sidebar] {
+        sidebar->setChecked(m_space_sidebar && !m_space_sidebar->isHidden());
+    });
+    connect(sidebar, &QAction::triggered, this, [this](bool show) {
+        if (show && !m_space_sidebar)
+            create_space_sidebar();
+        auto settings = Application::settings().tab_settings();
+        settings.vertical_tabs_expanded = show;
+        Application::settings().set_tab_settings(settings);
+        update_tabs_display();
+    });
     if (is_private() == WebView::IsPrivate::No) {
         auto& prefs = Application::desktop_preferences();
         prefs.beginGroup("pinned-folders");
