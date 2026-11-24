@@ -12,6 +12,7 @@
 #include <AK/kmalloc.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/HTML/ActivateTab.h>
+#include <LibWebCommon/HTML/PreparedNavigationDescriptor.h>
 #include <LibWebCommon/Page/PageId.h>
 #include <LibWebView/BrowsingSession.h>
 #include <LibWebView/Forward.h>
@@ -233,6 +234,8 @@ public:
     }
 
     void update_tabs_display();
+    void set_compact_chrome();
+    void peek_at_link(Web::HTML::PreparedNavigationDescriptor const&);
 
     void rebuild_bookmarks_menu();
     enum class DetachedWindowFollowsPointer : bool {
@@ -342,6 +345,7 @@ private:
 
     WebView::IsPrivate m_is_private { WebView::IsPrivate::No };
 
+    bool m_compact_chrome { false };
     TabWidget* m_tabs_container { nullptr };
     Tab* m_current_tab { nullptr };
     Array<QPointer<PageCard>, 3> m_page_cards;

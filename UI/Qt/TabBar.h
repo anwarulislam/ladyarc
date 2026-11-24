@@ -348,6 +348,7 @@ public:
     void set_tab_icon(int index, QIcon const& icon);
 
     void set_tab_bar_visible(bool visible);
+    void set_compact_tab_strip();
 
     enum class NotificationBarSlot : u8 {
         SandboxOff,
@@ -506,6 +507,7 @@ private:
     QBoxLayout* m_vertical_tabs_content_layout { nullptr };
     QSpacerItem* m_vertical_tabs_header_spacer { nullptr };
     QSpacerItem* m_vertical_tabs_footer_spacer { nullptr };
+    bool m_compact_tab_strip { false };
     bool m_tab_bar_visible { true };
     bool m_window_controls_visible { true };
     bool m_vertical_tabs_enabled { false };

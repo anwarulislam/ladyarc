@@ -3492,6 +3492,8 @@ void TabWidget::insert_tab(int index, Tab* widget, QString const& label)
 
     m_stacked_widget->insertWidget(index, widget);
     m_tab_bar->insertTab(index, label);
+    if (m_compact_tab_strip)
+        update_tab_chrome_visibility();
     if (!m_tab_updates_deferred)
         place_toolbar_over_page_column();
 
@@ -3558,6 +3560,8 @@ Tab* TabWidget::take_tab(int index)
     m_tab_bar->set_tab_close_button(index, nullptr);
     m_tab_bar->set_tab_audio_button(index, nullptr);
     m_tab_bar->removeTab(index);
+    if (m_compact_tab_strip)
+        update_tab_chrome_visibility();
 
     if (m_tab_bar->count() > 0 && m_tab_bar->currentIndex() >= 0)
         m_stacked_widget->setCurrentIndex(m_tab_bar->currentIndex());
@@ -3586,6 +3590,12 @@ void TabWidget::set_new_tab_action(QAction* action)
         return;
 
     connect(m_new_tab_button, &QToolButton::clicked, action, &QAction::trigger);
+}
+
+void TabWidget::set_compact_tab_strip()
+{
+    m_compact_tab_strip = true;
+    update_tab_chrome_visibility();
 }
 
 void TabWidget::set_tab_bar_visible(bool visible)
@@ -5414,7 +5424,7 @@ void TabWidget::update_tab_chrome_visibility()
 {
     auto tab_layout = m_tab_bar->tab_layout();
     auto is_horizontal = tab_layout == TabLayout::Horizontal;
-    auto show_top_row = m_tab_bar_visible && is_horizontal;
+    auto show_top_row = m_tab_bar_visible && is_horizontal && (!m_compact_tab_strip || count() > 1);
     m_tab_bar_row->setVisible(show_top_row);
     m_toolbar->setVisible(m_tab_bar_visible);
     m_toolbar_placeholder->setVisible(m_tab_bar_visible && m_toolbar_follows_page_column);

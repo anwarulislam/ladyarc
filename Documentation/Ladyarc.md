@@ -5,7 +5,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 ## Release and priority features
 
 - [ ] Build an installable browser from a published release. The Ladyarc workflow also builds development snapshots on changes to the browser. Check both platform jobs and their packages before marking this complete.
-- [ ] Peek at a link in an overlay and return to the original page.
+- [x] Peek at a web link from its context menu. The preview opens over the source window. Done or Escape dismisses it. Open as Tab moves the live preview into the source window.
 - [ ] Open an external link or a quick search in a Little Arc window.
 - [ ] Create Spaces with their own open and pinned tabs. Switch by swipe and keyboard.
 

@@ -58,6 +58,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QShortcut>
+#include <QStatusBar>
 #include <QSurfaceFormat>
 #include <QTabBar>
 #include <QTimer>
@@ -663,15 +664,50 @@ void BrowserWindow::show_window_context_menu(QPoint global_position)
     execute_context_menu(*m_window_context_menu, global_position);
 }
 
+void BrowserWindow::set_compact_chrome()
+{
+    m_compact_chrome = true;
+    m_tabs_container->set_compact_tab_strip();
+    update_tabs_display();
+    update_menu_bar_visibility();
+}
+
+void BrowserWindow::peek_at_link(Web::HTML::PreparedNavigationDescriptor const& navigation)
+{
+    auto& preview = Application::the().new_window({ navigation.url }, {}, IsPopupWindow::Yes, is_private(), {}, ShowWindow::No, navigation);
+    preview.setParent(this, Qt::Dialog);
+    preview.setWindowModality(Qt::WindowModal);
+    preview.set_compact_chrome();
+
+    auto* keep = new QPushButton("Open as Tab", &preview);
+    auto* dismiss = new QPushButton("Done", &preview);
+    preview.statusBar()->setSizeGripEnabled(false);
+    preview.statusBar()->addPermanentWidget(keep);
+    preview.statusBar()->addPermanentWidget(dismiss);
+    connect(keep, &QPushButton::clicked, &preview, [this, &preview] {
+        if (auto* tab = preview.current_tab())
+            preview.move_tab_to_window(preview.tab_index(tab), *this, tab_count());
+    });
+    connect(dismiss, &QPushButton::clicked, &preview, &QWidget::close);
+    new QShortcut(QKeySequence(Qt::Key_Escape), &preview, [&preview] { preview.close(); });
+
+    auto bounds = frameGeometry().intersected(screen()->availableGeometry());
+    auto size = QSize(bounds.width() * 4 / 5, bounds.height() * 4 / 5).boundedTo({ 960, 760 });
+    preview.resize(size);
+    preview.move(bounds.center() - QPoint(size.width() / 2, size.height() / 2));
+    preview.show();
+    preview.activateWindow();
+}
+
 void BrowserWindow::update_tabs_display()
 {
     auto const& settings = Application::settings().tab_settings();
-    m_tabs_container->set_vertical_tabs_enabled(settings.vertical_tabs_enabled);
+    m_tabs_container->set_vertical_tabs_enabled(!m_compact_chrome && settings.vertical_tabs_enabled);
     m_tabs_container->set_vertical_tabs_expanded(settings.vertical_tabs_expanded);
     m_tabs_container->set_vertical_tabs_expand_on_hover(settings.vertical_tabs_expand_on_hover);
     // NB: With everything in the sidebar, the sidebar is on the left, beside the traffic lights.
     m_tabs_container->set_vertical_tabs_position(settings.everything_in_sidebar ? WebView::VerticalTabsPosition::Left : settings.vertical_tabs_position);
-    m_tabs_container->set_everything_in_sidebar(settings.everything_in_sidebar);
+    m_tabs_container->set_everything_in_sidebar(!m_compact_chrome && settings.everything_in_sidebar);
 }
 
 void BrowserWindow::rebuild_bookmarks_menu()
@@ -1484,7 +1520,7 @@ void BrowserWindow::create_menu_bar_window_controls()
 
 void BrowserWindow::update_menu_bar_visibility()
 {
-    auto show_menu_bar = show_menu_bar_option_available() && Application::settings().appearance().show_menu_bar;
+    auto show_menu_bar = !m_compact_chrome && show_menu_bar_option_available() && Application::settings().appearance().show_menu_bar;
 
     // Update the controls first so the menu bar measures its corner widgets with the controls visible when shown.
     if (m_menu_bar_window_controls)
@@ -1522,7 +1558,7 @@ void BrowserWindow::update_window_decoration_state()
 {
     clear_resize_cursor();
 
-    auto should_be_frameless = uses_client_side_decorations();
+    auto should_be_frameless = !m_compact_chrome && uses_client_side_decorations();
     auto is_frameless = windowFlags().testFlag(Qt::FramelessWindowHint);
 
     if (is_frameless != should_be_frameless) {

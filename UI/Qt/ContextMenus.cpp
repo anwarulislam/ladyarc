@@ -97,6 +97,12 @@ static void add_link_actions(Menu& menu, RemoteView& view, Web::HTML::PreparedNa
         VERIFY_NOT_REACHED();
     }();
 
+    if (url.scheme().is_one_of("http"sv, "https"sv)) {
+        menu.add_action(Action::create("Peek at Link"sv, ActionID::PeekLink, on_view(view.view_id(), [navigation](RemoteView& source) {
+            if (auto* window = Application::the().window_of_view(source.view_id()))
+                window->peek_at_link(navigation);
+        })));
+    }
     add_open_url_actions(menu, view, url, navigation);
     menu.add_separator();
     menu.add_action(create_copy_url_action(copy_url_text, url));

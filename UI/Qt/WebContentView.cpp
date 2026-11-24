@@ -2632,7 +2632,9 @@ bool WebContentView::event(QEvent* event)
 
     if (event->type() == QEvent::ShortcutOverride) {
         auto* key_event = static_cast<QKeyEvent*>(event);
-        if (is_browser_reserved_shortcut(*key_event)) {
+        auto dismisses_preview = key_event->key() == Qt::Key_Escape && key_event->modifiers() == Qt::NoModifier
+            && window()->windowModality() == Qt::WindowModal && !window()->isFullScreen();
+        if (dismisses_preview || is_browser_reserved_shortcut(*key_event)) {
             event->ignore();
             return false;
         }

@@ -82,6 +82,7 @@ enum class ActionID {
     ViewSource,
     InspectElement,
 
+    PeekLink,
     OpenInNewTab,
     OpenInNewWindow,
     OpenInNewPrivateWindow,
