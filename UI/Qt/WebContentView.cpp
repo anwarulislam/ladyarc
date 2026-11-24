@@ -131,6 +131,7 @@ WebContentView::WebContentView(QWidget* window, Optional<u64> hub_view_id, WebCo
     : WebContentViewBase(initial_web_content_view_parent(window))
     , RemoteView(hub_view_id, {
                                   .is_private = initial_state.is_private,
+                                  .profile_id = initial_state.profile_id,
                                   .device_pixel_ratio = devicePixelRatio(),
                                   .maximum_frames_per_second = initial_state.maximum_frames_per_second,
                                   .display_id = initial_state.display_id,

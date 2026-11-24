@@ -31,13 +31,14 @@ class WEBVIEW_API BrowsingSession
     : public RefCounted<BrowsingSession>
     , public Weakable<BrowsingSession> {
 public:
-    static NonnullRefPtr<BrowsingSession> create(IsPrivate);
+    static NonnullRefPtr<BrowsingSession> create(IsPrivate, u64 profile_id = 0);
     ~BrowsingSession();
 
     IsPrivate is_private() const { return m_is_private; }
 
     // No two sessions of the application share an ID.
     u64 id() const { return m_id; }
+    u64 profile_id() const { return m_profile_id; }
 
     // NB: Null for the ordinary session until Application fills these in during startup.
     OwnPtr<CookieJar> cookie_jar;
@@ -65,7 +66,9 @@ public:
     Vector<CertificateException> trusted_certificates;
 
 private:
-    explicit BrowsingSession(IsPrivate);
+    explicit BrowsingSession(IsPrivate, u64 profile_id);
+
+    u64 m_profile_id { 0 };
 
     u64 m_id { 0 };
     IsPrivate m_is_private { IsPrivate::No };

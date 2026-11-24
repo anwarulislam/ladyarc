@@ -67,6 +67,7 @@ class Application final
     friend class BookmarksPage;
     friend class RemoteDownloads;
     friend class RemoteView;
+    friend class SuggestionProvider;
     friend class HubConnection;
 
 public:
@@ -111,8 +112,9 @@ public:
     static SessionStore& session_store(WebView::IsPrivate);
 
     // Browsing history and the favicons it, the bookmarks and the open tabs show. Private windows keep no history.
-    static WebView::HistoryStore& history_store() { return *s_the->m_history_store; }
-    static WebView::FaviconStore& favicon_store(WebView::IsPrivate);
+    static WebView::HistoryStore& history_store(u64 profile_id = 0);
+    WebView::AutocompleteService& profile_autocomplete(u64 profile_id);
+    static WebView::FaviconStore& favicon_store(WebView::IsPrivate, u64 profile_id = 0);
     void remove_unreferenced_favicons(HashTable<String> referenced_hashes);
 
     // The location bars make their suggestions from the history, and from the search engine through the Hub.
@@ -128,7 +130,7 @@ public:
     Function<void(URL::URL)> on_open_file;
 
     // A page's initial navigation, when there is one, starts in place of the first initial URL.
-    BrowserWindow& new_window(Vector<URL::URL> const& initial_urls, WindowConfiguration const& = {}, BrowserWindow::IsPopupWindow is_popup_window = BrowserWindow::IsPopupWindow::No, WebView::IsPrivate = WebView::IsPrivate::No, Optional<u64> hub_view_id = {}, ShowWindow = ShowWindow::Yes, Optional<Web::HTML::PreparedNavigationDescriptor> initial_navigation = {});
+    BrowserWindow& new_window(Vector<URL::URL> const& initial_urls, WindowConfiguration const& = {}, BrowserWindow::IsPopupWindow is_popup_window = BrowserWindow::IsPopupWindow::No, WebView::IsPrivate = WebView::IsPrivate::No, Optional<u64> hub_view_id = {}, ShowWindow = ShowWindow::Yes, Optional<Web::HTML::PreparedNavigationDescriptor> initial_navigation = {}, QString initial_space = {});
     WindowConfiguration configuration_for_new_window() const;
 
     // Opens the windows startup recovery kept open, and returns the frontmost one, if any.
@@ -260,7 +262,7 @@ private:
     OwnPtr<WebView::MediaSessionPlatformBackend> create_media_session_platform_backend();
     WebView::MediaSessionPlatformBackend* media_session_platform_backend();
     void focus_view_from_notification(u64 view_id);
-    void open_url_in_new_tab_from_notification(URL::URL const&, Optional<u64> view_id, WebView::IsPrivate);
+    void open_url_in_new_tab_from_notification(URL::URL const&, Optional<u64> view_id, WebView::IsPrivate, u64 profile_id);
 
     virtual bool supports_picture_in_picture() const override { return true; }
     void open_picture_in_picture_window(u64 view_id, u64 owner_view_id, Gfx::IntSize video_size);
@@ -274,12 +276,12 @@ private:
 
     BrowserWindow* window_of_view(u64 view_id) const;
     BrowserWindow* window_for_new_tab(Optional<u64> source_view_id, WebView::IsPrivate) const;
-    void open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate, Web::HTML::ActivateTab);
-    void open_url_in_new_tab(URL::URL const&, Web::HTML::ActivateTab, Optional<u64> source_view_id, WebView::IsPrivate) const;
+    void open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id, Web::HTML::ActivateTab);
+    void open_url_in_new_tab(URL::URL const&, Web::HTML::ActivateTab, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id = 0) const;
     void open_urls_in_new_tabs(ReadonlySpan<URL::URL>) const;
-    void open_url_in_new_window(URL::URL const&, WebView::IsPrivate);
-    void open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor, Web::HTML::ActivateTab, Optional<u64> source_view_id, WebView::IsPrivate) const;
-    void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate);
+    void open_url_in_new_window(URL::URL const&, WebView::IsPrivate, Optional<u64> source_view_id, u64 profile_id);
+    void open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor, Web::HTML::ActivateTab, Optional<u64> source_view_id, WebView::IsPrivate, u64 profile_id) const;
+    void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate, Optional<u64> source_view_id, u64 profile_id);
 
     virtual void resolve_external_url_handler(URL::URL const&, WebView::ExternalURLHandlerCallback) const override;
     void resolve_external_url_handler_for_hub(u64 request_id, URL::URL const&);
@@ -340,7 +342,18 @@ private:
     void on_recently_closed_entries_changed() const;
     void did_clear_history_since(UnixDateTime);
     void create_session_store(ByteString const& data_directory, bool persists_sessions);
+    struct ProfileHistory {
+        OwnPtr<WebView::FaviconStore> favicons;
+        OwnPtr<WebView::HistoryStore> history;
+        OwnPtr<WebView::AutocompleteService> autocomplete;
+    };
+    static bool open_profile_history(ByteString const&, bool uses_database, OwnPtr<WebView::FaviconStore>&, OwnPtr<WebView::HistoryStore>&, OwnPtr<WebView::AutocompleteService>&);
+    ProfileHistory& named_history(u64);
+    HashMap<u64, NonnullOwnPtr<ProfileHistory>> m_named_histories;
+    ByteString m_history_root;
+    bool m_history_uses_database { false };
     void create_history_store(ByteString const& data_directory, bool uses_sql_database);
+    Function<void()> fetch_profile_suggestions(WebView::SearchEngine const&, String const&, WebView::IsPrivate, u64 profile_id, Function<void(RemoteResponse)>);
     void quit_for_signal();
 
     static Application* s_the;

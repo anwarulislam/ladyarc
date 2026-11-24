@@ -13,12 +13,14 @@
 #include <UI/Qt/SpaceBookmarks.h>
 #include <UI/Qt/StringUtils.h>
 
+#include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDockWidget>
 #include <QInputDialog>
 #include <QListWidget>
 #include <QMenuBar>
+#include <QRandomGenerator>
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QStyle>
@@ -35,6 +37,51 @@ QString BrowserWindow::external_route_key(URL::URL const& url)
     return "external-routes/" + QString::fromLatin1(QUrl::toPercentEncoding(qstring_from_ak_string(url.serialized_host())));
 }
 
+QString BrowserWindow::space_profile_key(QString const& space)
+{
+    return "space-profiles/" + QString::fromLatin1(QUrl::toPercentEncoding(space));
+}
+
+u64 BrowserWindow::profile_for_space(QString const& name) const
+{
+    if (is_private() == WebView::IsPrivate::Yes)
+        return 0;
+    return Application::desktop_preferences().value(space_profile_key(name)).toULongLong();
+}
+
+QString BrowserWindow::space_for_profile(u64 id, QString preferred)
+{
+    auto& settings = Application::desktop_preferences();
+    if (!preferred.isEmpty() && settings.value(space_profile_key(preferred)).toULongLong() == id)
+        return preferred;
+    if (!id)
+        return QStringLiteral("Main");
+    settings.beginGroup("space-profiles");
+    QString result;
+    for (auto const& key : settings.childKeys()) {
+        if (settings.value(key).toULongLong() == id) {
+            result = QUrl::fromPercentEncoding(key.toLatin1());
+            break;
+        }
+    }
+    settings.endGroup();
+    if (result.isEmpty()) {
+        // Recover a stable binding if the Space name was removed while a Hub view was still alive.
+        result = QStringLiteral("Profile %1").arg(id);
+        while (settings.contains(space_profile_key(result)))
+            result += QLatin1Char('_');
+        settings.setValue(space_profile_key(result), QVariant::fromValue<qulonglong>(id));
+    }
+    return result;
+}
+
+Tab& BrowserWindow::open_url_in_space(URL::URL const& url, QString const& space)
+{
+    auto& tab = create_new_tab(Web::HTML::ActivateTab::Yes, TabLocation::end(), space);
+    tab.navigate(url);
+    return tab;
+}
+
 void BrowserWindow::initialize_spaces()
 {
     if (m_is_popup_window == IsPopupWindow::Yes)
@@ -49,6 +96,14 @@ void BrowserWindow::initialize_spaces()
         for (auto const& key : keys) {
             auto name = QUrl::fromPercentEncoding(key.toLatin1());
             if (!m_spaces.contains(name) && space_bookmarks_folder(name, false).has_value())
+                m_spaces.append(name);
+        }
+        prefs.beginGroup("space-profiles");
+        auto saved_spaces = prefs.childKeys();
+        prefs.endGroup();
+        for (auto const& key : saved_spaces) {
+            auto name = QUrl::fromPercentEncoding(key.toLatin1());
+            if (!m_spaces.contains(name))
                 m_spaces.append(name);
         }
         if (m_spaces.size() > 1)
@@ -83,8 +138,33 @@ void BrowserWindow::initialize_spaces()
     auto* create = menu->addAction("New Space…");
     connect(create, &QAction::triggered, this, [this] {
         auto name = QInputDialog::getText(this, "New Space", "Space name").trimmed().left(72);
-        if (!name.isEmpty())
-            switch_space(name);
+        if (name.isEmpty())
+            return;
+        auto& prefs = Application::desktop_preferences();
+        if (is_private() == WebView::IsPrivate::No && !m_spaces.contains(name) && !prefs.contains(space_profile_key(name))) {
+            QStringList profiles { QStringLiteral("Default profile") };
+            QHash<QString, quint64> ids;
+            prefs.beginGroup("profile-names");
+            for (auto const& key : prefs.childKeys()) {
+                auto title = prefs.value(key).toString();
+                profiles.append(title);
+                ids.insert(title, key.toULongLong());
+            }
+            prefs.endGroup();
+            bool ok = false;
+            auto profile = QInputDialog::getItem(this, "Space Profile", "Choose a profile or enter a new name", profiles, 0, true, &ok).trimmed().left(72);
+            if (!ok || profile.isEmpty())
+                return;
+            auto id = ids.value(profile);
+            if (profile != profiles.first() && !id) {
+                do {
+                    id = QRandomGenerator::global()->generate64() >> 1;
+                } while (!id || prefs.contains("profile-names/" + QString::number(id)));
+                prefs.setValue("profile-names/" + QString::number(id), profile);
+            }
+            prefs.setValue(space_profile_key(name), id);
+        }
+        switch_space(name);
     });
     auto* color = menu->addAction("Choose Space Color…");
     connect(color, &QAction::triggered, this, [this] {
@@ -149,7 +229,8 @@ void BrowserWindow::initialize_spaces()
     connect(move_menu, &QMenu::aboutToShow, this, [this, move_menu] {
         move_menu->clear();
         for (auto const& name : m_spaces) {
-            auto* action = move_menu->addAction(name);
+            auto different_profile = profile_for_space(name) != profile_for_space(m_active_space);
+            auto* action = move_menu->addAction(different_profile ? "Open Copy in " + name : name);
             action->setEnabled(current_tab() && name != m_active_space);
             connect(action, &QAction::triggered, this, [this, name] {
                 if (auto* tab = current_tab())
@@ -163,11 +244,34 @@ void BrowserWindow::assign_space(Tab& tab, QString const& name)
 {
     if (name.isEmpty() || tab.space_name() == name)
         return;
+    if (profile_for_space(tab.space_name()) != profile_for_space(name)) {
+        // A live document keeps the profile that owns its cookies. Enter the other profile through a fresh navigation.
+        open_url_in_space(tab.url(), name);
+        return;
+    }
     if (auto id = tab.session_tab_id(); id.has_value()) {
         if (auto result = session().set_tab_space(*id, ak_string_from_qstring(name)); result.is_error()) {
             dbgln("Unable to store tab Space: {}", result.error());
             return;
         }
+    }
+    if (tab.is_pinned() && is_private() == WebView::IsPrivate::No) {
+        auto home = tab.pin_home.value_or(tab.url());
+        auto old_space = tab.space_name();
+        save_space_bookmark(name, home, ak_string_from_qstring(tab.title()));
+        bool still_pinned = false;
+        for (auto* widget : QApplication::topLevelWidgets()) {
+            auto* window = qobject_cast<BrowserWindow*>(widget);
+            if (!window || window->is_private() == WebView::IsPrivate::Yes)
+                continue;
+            for (int i = 0; i < window->tab_count(); ++i) {
+                auto* other = window->tab_at(i);
+                if (other != &tab && other->is_pinned() && other->space_name() == old_space && other->pin_home.value_or(other->url()) == home)
+                    still_pinned = true;
+            }
+        }
+        if (!still_pinned)
+            remove_space_bookmark(old_space, home);
     }
     tab.set_space_name(name);
     if (!m_spaces.contains(name))
@@ -521,6 +625,8 @@ void BrowserWindow::refresh_space_sidebar()
             m_space_picker->addItems(m_spaces);
         }
         m_space_picker->setCurrentText(m_active_space);
+        auto id = profile_for_space(m_active_space);
+        m_space_picker->setToolTip(id ? Application::desktop_preferences().value("profile-names/" + QString::number(id)).toString() : QStringLiteral("Default profile"));
         if (m_pinned_folders->property("space").toString() != m_active_space)
             refresh_pinned_folders();
         if (m_live_folders->property("space").toString() != m_active_space)

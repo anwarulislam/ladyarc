@@ -9,12 +9,15 @@
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
 #include <LibGfx/SystemTheme.h>
+#include <LibHTTP/Cookie/ParsedCookie.h>
 #include <LibRequests/RequestClient.h>
 #include <LibRequests/RequestControlClient.h>
 #include <LibTest/TestCase.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/BrowsingSession.h>
+#include <LibWebView/CookieJar.h>
+#include <LibWebView/StorageJar.h>
 #include <LibWebView/HeadlessWebView.h>
 #include <LibWebView/HelperProcess.h>
 #include <LibWebView/ProcessManager.h>
@@ -61,6 +64,43 @@ int connect_request_server_client(WebView::BrowsingSession& session)
     return client_id;
 }
 
+}
+
+TEST_CASE(named_space_profiles_keep_same_origin_state_separate)
+{
+    Test::HeadlessTestEnvironment environment { "TestNamedSpaceProfiles"sv };
+    auto app = TRY_OR_FAIL(environment.create_application<TestApplication>());
+    auto work = WebView::Application::session_for_new_view(WebView::IsPrivate::No, 17);
+    auto shared = WebView::Application::session_for_new_view(WebView::IsPrivate::No, 17);
+    auto personal = WebView::Application::session_for_new_view(WebView::IsPrivate::No, 29);
+    auto& regular = WebView::Application::default_session();
+    EXPECT_EQ(work.ptr(), shared.ptr());
+    EXPECT_NE(work.ptr(), personal.ptr());
+    EXPECT_NE(work.ptr(), &regular);
+    EXPECT_EQ(work->profile_id(), 17u);
+
+    auto url = URL::Parser::basic_parse("https://example.org/"sv).release_value();
+    auto cookie = HTTP::Cookie::parse_cookie(url, "login=work; Path=/; Secure"sv).release_value();
+    work->cookie_jar->set_cookie(url, cookie, HTTP::Cookie::Source::Http, {}, HTTP::Cookie::SameSiteContext::same_site());
+    EXPECT(shared->cookie_jar->get_named_cookie(url, "login"sv).has_value());
+    EXPECT(!personal->cookie_jar->get_named_cookie(url, "login"sv).has_value());
+    EXPECT(!regular.cookie_jar->get_named_cookie(url, "login"sv).has_value());
+
+    auto endpoint = Web::StorageAPI::StorageEndpointType::LocalStorage;
+    auto origin = "https://example.org"_string;
+    (void)work->storage_jar->set_item(endpoint, origin, "account"_utf16, "work"_utf16);
+    EXPECT_EQ(shared->storage_jar->get_item(endpoint, origin, "account"_utf16).value(), "work"_utf16);
+    EXPECT(!personal->storage_jar->get_item(endpoint, origin, "account"_utf16).has_value());
+
+    auto work_client = TRY_OR_FAIL(WebView::Application::request_server_client(WebView::IsPrivate::No, 17));
+    auto personal_client = TRY_OR_FAIL(WebView::Application::request_server_client(WebView::IsPrivate::No, 29));
+    EXPECT_EQ(app->session_for_request_server_client(client_id_of(*work_client)).ptr(), work.ptr());
+    EXPECT_EQ(app->session_for_request_server_client(client_id_of(*personal_client)).ptr(), personal.ptr());
+    auto work_page = TRY_OR_FAIL(app->open_page_for_new_tab(*work));
+    auto personal_page = TRY_OR_FAIL(app->open_page_for_new_tab(*personal));
+    EXPECT_EQ(&work_page->client().session(), work.ptr());
+    EXPECT_EQ(&personal_page->client().session(), personal.ptr());
+    EXPECT_NE(&work_page->client(), &personal_page->client());
 }
 
 TEST_CASE(request_server_snapshots_report_session_privacy)

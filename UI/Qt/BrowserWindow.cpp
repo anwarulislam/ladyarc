@@ -348,9 +348,10 @@ static QIcon const& app_icon(WebView::IsPrivate is_private)
     return cached_icon;
 }
 
-BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow is_popup_window, WebView::IsPrivate is_private, Optional<u64> hub_view_id, Optional<SessionWindowId> restored_session_window_id)
+BrowserWindow::BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow is_popup_window, WebView::IsPrivate is_private, Optional<u64> hub_view_id, Optional<SessionWindowId> restored_session_window_id, QString initial_space)
     : WebView::SettingsObserver(Application::settings())
     , m_is_private(is_private)
+    , m_active_space(initial_space.isEmpty() ? QStringLiteral("Main") : initial_space)
     , m_tabs_container(new TabWidget(is_private, this))
     , m_is_popup_window(is_popup_window)
 {
@@ -735,7 +736,7 @@ void BrowserWindow::set_compact_chrome()
 
 void BrowserWindow::peek_at_link(Web::HTML::PreparedNavigationDescriptor const& navigation)
 {
-    auto& preview = Application::the().new_window({ navigation.url }, {}, IsPopupWindow::Yes, is_private(), {}, ShowWindow::No, navigation);
+    auto& preview = Application::the().new_window({ navigation.url }, {}, IsPopupWindow::Yes, is_private(), {}, ShowWindow::No, navigation, m_active_space);
     preview.setParent(this, Qt::Dialog);
     preview.setWindowModality(Qt::WindowModal);
     preview.set_compact_chrome();
@@ -765,6 +766,8 @@ void BrowserWindow::update_tabs_display()
     auto const& settings = Application::settings().tab_settings();
     m_tabs_container->set_vertical_tabs_enabled(!m_space_sidebar && !m_compact_chrome && settings.vertical_tabs_enabled);
     m_tabs_container->set_vertical_tabs_expanded(settings.vertical_tabs_expanded);
+    if (m_space_sidebar && !m_compact_chrome)
+        m_space_sidebar->setVisible(settings.vertical_tabs_expanded);
     m_tabs_container->set_vertical_tabs_expand_on_hover(settings.vertical_tabs_expand_on_hover);
     // NB: With everything in the sidebar, the sidebar is on the left, beside the traffic lights.
     m_tabs_container->set_vertical_tabs_position(settings.everything_in_sidebar ? WebView::VerticalTabsPosition::Left : settings.vertical_tabs_position);
@@ -858,18 +861,19 @@ SessionStore& BrowserWindow::session() const
     return Application::session_store(m_is_private);
 }
 
-Optional<WebView::HistoryEntry> BrowserWindow::history_entry_for_url(URL::URL const& url) const
+Optional<WebView::HistoryEntry> BrowserWindow::history_entry_for_url(URL::URL const& url, QString space) const
 {
     if (m_is_private == WebView::IsPrivate::Yes)
         return {};
-    return Application::history_store().entry_for_url(url);
+    return Application::history_store(profile_for_space(space.isEmpty() ? m_active_space : space)).entry_for_url(url);
 }
 
 Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int index, bool defer)
 {
+    auto space = restored.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(restored.space_name);
     if (defer) {
         // Until the tab loads, it shows what browsing history knows about its page.
-        auto entry = history_entry_for_url(restored.url);
+        auto entry = history_entry_for_url(restored.url, space);
         DeferredTab deferred_tab {
             .session_tab_id = restored.tab_id,
             .url = restored.url,
@@ -880,17 +884,17 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
         };
         auto* tab = new Tab(this, AK::move(deferred_tab));
         tab->set_pinned(restored.pinned);
-        tab->set_space_name(restored.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(restored.space_name));
+        tab->set_space_name(space);
         m_tabs_container->insert_tab(index, tab, tab->title());
         initialize_tab(tab);
         tab_title_changed(m_tabs_container->index_of(tab), tab->title());
         return *tab;
     }
 
-    auto* tab = new Tab(this);
+    auto* tab = new Tab(this, {}, space);
     // The tab already has a row, so initialize_tab() doesn't register a new one.
     tab->set_session_tab_id(restored.tab_id);
-    tab->set_space_name(restored.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(restored.space_name));
+    tab->set_space_name(space);
     tab->set_pinned(restored.pinned);
 
     if (!m_current_tab)
@@ -904,14 +908,13 @@ Tab& BrowserWindow::create_restored_tab(RestoredSessionTab const& restored, int 
     return *tab;
 }
 
-Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, Optional<u64> hub_view_id)
+Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, Optional<u64> hub_view_id, QString space)
 {
     cancel_window_close_preflight();
     if (!hub_view_id.has_value())
-        return create_new_tab(activate_tab, TabLocation::end());
+        return create_new_tab(activate_tab, TabLocation::end(), space);
 
-    auto* tab = new Tab(this, hub_view_id);
-    tab->set_space_name(m_active_space);
+    auto* tab = new Tab(this, hub_view_id, space.isEmpty() ? m_active_space : space);
 
     // FIXME: Merge with other overload
     if (m_current_tab == nullptr) {
@@ -941,12 +944,13 @@ bool BrowserWindow::has_chrome_in_titlebar()
     return use_native_macos_window_controls() || uses_client_side_decorations();
 }
 
-Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, TabLocation location)
+Tab& BrowserWindow::create_new_tab(Web::HTML::ActivateTab activate_tab, TabLocation location, QString space)
 {
     cancel_window_close_preflight();
 
-    auto* tab = new Tab(this);
-    tab->set_space_name(location.tab() ? location.tab()->space_name() : m_active_space);
+    if (space.isEmpty())
+        space = location.tab() ? location.tab()->space_name() : m_active_space;
+    auto* tab = new Tab(this, {}, space);
 
     if (m_current_tab == nullptr) {
         set_current_tab(tab);
@@ -1021,6 +1025,8 @@ void BrowserWindow::initialize_tab(Tab* tab)
         QObject::connect(tab, &Tab::loaded, this, [this, tab] { initialize_tab_view(tab); }, Qt::SingleShotConnection);
 
     initialize_tab_buttons(tab);
+    if (is_private() == WebView::IsPrivate::No && !Application::desktop_preferences().contains(space_profile_key(tab->space_name())))
+        Application::desktop_preferences().setValue(space_profile_key(tab->space_name()), 0);
     if (!m_spaces.contains(tab->space_name()))
         m_spaces.append(tab->space_name());
     if (m_spaces.size() > 1 && !m_space_sidebar)
@@ -1043,18 +1049,18 @@ void BrowserWindow::initialize_tab_view(Tab* tab)
         }
     });
 
-    tab->view().on_open_new_view = [this](auto activate_tab, Web::HTML::WebViewHints hints, u64 hub_view_id) {
+    tab->view().on_open_new_view = [this, tab](auto activate_tab, Web::HTML::WebViewHints hints, u64 hub_view_id) {
         if (hints.popup) {
             auto cascaded_configuration = Application::the().configuration_for_new_window();
             WindowConfiguration configuration {
                 .x = hints.screen_x.has_value() ? hints.screen_x : cascaded_configuration.x,
                 .y = hints.screen_y.has_value() ? hints.screen_y : cascaded_configuration.y,
             };
-            auto& window = Application::the().new_window({}, configuration, IsPopupWindow::Yes, m_is_private, hub_view_id);
+            auto& window = Application::the().new_window({}, configuration, IsPopupWindow::Yes, m_is_private, hub_view_id, ShowWindow::Yes, {}, tab->space_name());
             window.place_popup_window(hints, *screen());
             return;
         }
-        create_new_tab(activate_tab, hub_view_id);
+        create_new_tab(activate_tab, hub_view_id, tab->space_name());
     };
 }
 
@@ -1073,7 +1079,8 @@ void BrowserWindow::adopt_tab(Tab& tab, int index)
     index = constrain_insertion_index(index, tab.is_pinned());
 
     tab.set_window(*this);
-    assign_space(tab, m_active_space);
+    if (profile_for_space(tab.space_name()) == profile_for_space(m_active_space))
+        assign_space(tab, m_active_space);
     m_tabs_container->insert_tab(index, &tab, "New Tab");
     if (tab.is_loaded())
         tab.view().finish_window_move();
@@ -1281,11 +1288,11 @@ void BrowserWindow::activate_tab(int index)
     m_tabs_container->set_current_index(index);
 }
 
-Tab* BrowserWindow::activate_tab_with_url(URL::URL const& url, URL::ExcludeFragment exclude_fragment)
+Tab* BrowserWindow::activate_tab_with_url(URL::URL const& url, URL::ExcludeFragment exclude_fragment, u64 profile_id)
 {
     for (int index = 0; index < m_tabs_container->count(); ++index) {
         auto* tab = m_tabs_container->tab(index);
-        if (tab && tab->url().equals(url, exclude_fragment)) {
+        if (tab && profile_for_space(tab->space_name()) == profile_id && tab->url().equals(url, exclude_fragment)) {
             m_tabs_container->set_current_index(index);
             return tab;
         }

@@ -42,7 +42,7 @@ void BrowserWindow::initialize_archive(QMenu& menu)
         for (auto it = keys.crbegin(); it != keys.crend(); ++it) {
             auto key = "archived-pages/" + *it;
             auto record = settings.value(key).toStringList();
-            if (record.size() != 3)
+            if (record.size() != 3 || profile_for_space(record[2]) != profile_for_space(m_active_space))
                 continue;
             auto* action = archive->addAction(record[2] + " · " + (record[1].isEmpty() ? record[0] : record[1]));
             action->setToolTip(record[0]);
@@ -53,8 +53,7 @@ void BrowserWindow::initialize_archive(QMenu& menu)
                 QUrl url(record[0], QUrl::StrictMode);
                 if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https"))
                     return;
-                auto& tab = new_tab_from_url(ak_url_from_qurl(url), Web::HTML::ActivateTab::Yes, TabLocation::end());
-                assign_space(tab, record[2]);
+                open_url_in_space(ak_url_from_qurl(url), record[2]);
                 settings.remove(key);
             });
         }

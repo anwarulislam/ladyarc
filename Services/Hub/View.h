@@ -18,6 +18,7 @@ public:
 
     struct InitialState {
         WebView::IsPrivate is_private { WebView::IsPrivate::No };
+        u64 profile_id { 0 };
         double device_pixel_ratio { 1.0 };
         double maximum_frames_per_second { 60.0 };
         Optional<u64> display_id;

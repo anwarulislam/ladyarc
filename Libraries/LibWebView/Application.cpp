@@ -15,6 +15,7 @@
 #include <AK/Time.h>
 #include <LibCore/AnonymousBuffer.h>
 #include <LibCore/ArgsParser.h>
+#include <LibCore/DirIterator.h>
 #include <LibCore/Directory.h>
 #include <LibCore/Environment.h>
 #include <LibCore/File.h>
@@ -298,9 +299,9 @@ void Application::set_cpu_profiler_process(Core::Process process, OwnPtr<Core::F
 #endif
 }
 
-ErrorOr<NonnullRefPtr<Requests::RequestClient>> Application::request_server_client(IsPrivate is_private)
+ErrorOr<NonnullRefPtr<Requests::RequestClient>> Application::request_server_client(IsPrivate is_private, u64 profile_id)
 {
-    auto instance = TRY(request_server_manager().browser_instance(session_for_new_view(is_private)));
+    auto instance = TRY(request_server_manager().browser_instance(session_for_new_view(is_private, profile_id)));
     return instance->ui_client();
 }
 
@@ -1243,8 +1244,52 @@ Web::HTML::CrossProcessId Application::allocate_ui_process_cross_process_id()
     return m_ui_process_cross_process_id_allocator.allocate();
 }
 
-NonnullRefPtr<BrowsingSession> Application::session_for_new_view(IsPrivate is_private)
+NonnullRefPtr<BrowsingSession> Application::session_for_new_view(IsPrivate is_private, u64 profile_id)
 {
+    if (is_private == IsPrivate::No && profile_id != 0) {
+        auto& app = the();
+        auto existing = app.m_space_profiles.find(profile_id);
+        if (existing != app.m_space_profiles.end())
+            return existing->value;
+
+        auto session = BrowsingSession::create(IsPrivate::No, profile_id);
+        auto directory = LexicalPath::join(profile().paths().data, "SpaceProfiles"sv, ByteString::number(profile_id)).string();
+        auto persist = [&]() -> ErrorOr<void> {
+            TRY(Core::Directory::create(directory, Core::Directory::CreateDirectories::Yes, 0700));
+            auto database = TRY(Database::Database::create(directory, "Browser"sv));
+            for (auto mode : { Database::MigrationMode::CheckOnly, Database::MigrationMode::Apply }) {
+                if (TRY(CookieJar::migrate_schema(database, mode)) != Database::MigrationOutcome::Success
+                    || TRY(StorageJar::migrate_schema(database, mode)) != Database::MigrationOutcome::Success
+                    || TRY(HSTSStore::migrate_schema(database, mode)) != Database::MigrationOutcome::Success)
+                    return Error::from_string_literal("Unsupported Space profile database version");
+            }
+            auto cookies = TRY(CookieJar::create(database));
+            auto storage = TRY(StorageJar::create(database));
+            auto hsts = TRY(HSTSStore::create(database));
+            session->cookie_jar = move(cookies);
+            session->storage_jar = move(storage);
+            session->hsts_store = move(hsts);
+            return {};
+        };
+        if (browser_options().disable_sql_database == DisableSQLDatabase::No) {
+            if (auto result = persist(); result.is_error())
+                warnln("Unable to persist Space profile: {}", result.error());
+        }
+        if (!session->cookie_jar) {
+            session->cookie_jar = CookieJar::create();
+            session->storage_jar = StorageJar::create();
+            session->hsts_store = HSTSStore::create();
+        }
+        session->blob_url_store = make<BlobURLStore>();
+        session->permission_manager = PermissionManager::create_for_ordinary_session(LexicalPath::join(directory, "Permissions.json"sv).string());
+        session->permission_manager->register_observer(*app.m_permission_manager_observer);
+        session->permission_manager->on_deadlines_changed = [] { the().schedule_permission_expiry(); };
+        app.m_space_profiles.set(profile_id, session);
+        app.update_permission_defaults();
+        app.update_os_location_authorization();
+        app.schedule_permission_expiry();
+        return session;
+    }
     if (is_private == IsPrivate::No)
         return *the().m_default_session;
 
@@ -1735,12 +1780,17 @@ bool Application::tabs_may_share_processes() const
 
 ErrorOr<NonnullRefPtr<WebContentPage>> Application::open_page_for_new_tab(IsPrivate is_private)
 {
+    return open_page_for_new_tab(session_for_new_view(is_private));
+}
+
+ErrorOr<NonnullRefPtr<WebContentPage>> Application::open_page_for_new_tab(BrowsingSession& session)
+{
     if (m_spare_web_content_process && !m_spare_web_content_process->is_open())
         m_spare_web_content_process = nullptr;
 
     RefPtr<WebContentClient> web_content_client;
-    if (is_private == IsPrivate::Yes) {
-        web_content_client = TRY(create_web_content_client(session_for_new_view(IsPrivate::Yes), allocate_page_id()));
+    if (&session != &default_session()) {
+        web_content_client = TRY(create_web_content_client(session, allocate_page_id()));
     } else if (m_spare_web_content_process) {
         web_content_client = m_spare_web_content_process.release_nonnull();
         launch_spare_web_content_process();
@@ -1756,11 +1806,11 @@ ErrorOr<NonnullRefPtr<WebContentClient>> Application::launch_web_content_process
     return create_web_content_client(session, allocate_page_id());
 }
 
-ErrorOr<Application::ChildFrameWebContentProcess> Application::launch_child_frame_web_content_process(IsPrivate is_private, Vector<Web::HTML::RemoteNavigableDescriptor> remote_navigables, Web::HTML::CrossProcessId root_navigable_id, Web::HTML::SessionHistoryEntryDescriptor initial_history_entry, Web::HTML::VisibilityState system_visibility_state)
+ErrorOr<Application::ChildFrameWebContentProcess> Application::launch_child_frame_web_content_process(BrowsingSession& session, Vector<Web::HTML::RemoteNavigableDescriptor> remote_navigables, Web::HTML::CrossProcessId root_navigable_id, Web::HTML::SessionHistoryEntryDescriptor initial_history_entry, Web::HTML::VisibilityState system_visibility_state)
 {
     auto page_id = allocate_page_id();
     auto initial_document_state_id = initial_history_entry.document_state.id;
-    auto client = TRY(create_web_content_client(session_for_new_view(is_private), page_id, root_navigable_id, initial_document_state_id, move(remote_navigables), move(initial_history_entry), system_visibility_state));
+    auto client = TRY(create_web_content_client(session, page_id, root_navigable_id, initial_document_state_id, move(remote_navigables), move(initial_history_entry), system_visibility_state));
     return ChildFrameWebContentProcess {
         .client = move(client),
         .page_id = page_id,
@@ -2898,6 +2948,16 @@ NonnullRefPtr<Core::Promise<Empty>> Application::clear_browsing_data(ClearBrowsi
         m_file_downloader.remove_inactive_downloads_created_since(options.since);
 
     if (options.delete_site_data == ClearBrowsingDataOptions::Delete::Yes) {
+        Core::DirIterator directories { LexicalPath::join(profile().paths().data, "SpaceProfiles"sv).string(), Core::DirIterator::SkipParentAndBaseDir };
+        while (directories.has_next()) {
+            if (auto id = directories.next_path().to_number<u64>(); id.has_value() && *id)
+                (void)session_for_new_view(IsPrivate::No, *id);
+        }
+        for (auto& profile : m_space_profiles) {
+            profile.value->cookie_jar->expire_cookies_accessed_since(options.since);
+            profile.value->storage_jar->remove_items_accessed_since(options.since);
+            profile.value->hsts_store->remove_policies_observed_since(options.since);
+        }
         m_default_session->cookie_jar->expire_cookies_accessed_since(options.since);
         m_default_session->storage_jar->remove_items_accessed_since(options.since);
         m_default_session->hsts_store->remove_policies_observed_since(options.since);
@@ -3107,6 +3167,8 @@ void Application::schedule_permission_expiry()
             deadline = next;
     };
     consider(*m_default_session->permission_manager);
+    for (auto& profile : m_space_profiles)
+        consider(*profile.value->permission_manager);
     if (auto private_session = m_private_session.strong_ref())
         consider(*private_session->permission_manager);
 
@@ -3120,6 +3182,8 @@ void Application::schedule_permission_expiry()
     if (!m_permission_expiry_timer) {
         m_permission_expiry_timer = Core::Timer::create_single_shot(AK::Duration::zero(), [this] {
             m_default_session->permission_manager->run_expiry();
+            for (auto& profile : m_space_profiles)
+                profile.value->permission_manager->run_expiry();
             if (auto private_session = m_private_session.strong_ref())
                 private_session->permission_manager->run_expiry();
             schedule_permission_expiry();
@@ -3138,6 +3202,8 @@ void Application::update_os_location_authorization()
 {
     auto denied = m_geolocation_provider && m_geolocation_provider->authorization() == Core::GeolocationAuthorization::Denied;
     m_default_session->permission_manager->set_os_denies_geolocation(denied);
+    for (auto& profile : m_space_profiles)
+        profile.value->permission_manager->set_os_denies_geolocation(denied);
 }
 
 Core::GeolocationAuthorization Application::geolocation_authorization()
@@ -3167,6 +3233,8 @@ void Application::update_permission_defaults()
         }();
 
         m_default_session->permission_manager->set_global_default(name, state);
+        for (auto& profile : m_space_profiles)
+            profile.value->permission_manager->set_global_default(name, state);
     }
 }
 

@@ -37,10 +37,10 @@ void WebUIPages::register_page(String host, String title, Factory factory)
     m_factories.set(move(host), move(factory));
 }
 
-void WebUIPages::page_opened(u64 web_ui_id, String const& host, WebView::IsPrivate is_private)
+void WebUIPages::page_opened(u64 web_ui_id, String const& host, WebView::IsPrivate is_private, u64 profile_id)
 {
     if (auto factory = m_factories.get(host); factory.has_value())
-        m_pages.set(web_ui_id, (*factory)(web_ui_id, is_private));
+        m_pages.set(web_ui_id, (*factory)(web_ui_id, is_private, profile_id));
 }
 
 void WebUIPages::page_received_message(u64 web_ui_id, String const& name, JsonValue const& data)

@@ -864,7 +864,7 @@ protected:
     virtual Optional<ScreenRects> screen_rects() const { return {}; }
     void update_compositor_display_metadata(WebContentPage&);
 
-    explicit ViewImplementation(IsPrivate = IsPrivate::No);
+    explicit ViewImplementation(IsPrivate = IsPrivate::No, u64 profile_id = 0);
 
     void set_owner_view(ViewImplementation& owner_view);
 

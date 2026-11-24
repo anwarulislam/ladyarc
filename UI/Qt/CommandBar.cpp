@@ -90,6 +90,8 @@ private:
         int matches = 0;
         for (int i = 0; i < m_source.tab_count() && matches < 8; ++i) {
             auto* tab = m_source.tab_at(i);
+            if (m_source.profile_for_space(tab->space_name()) != m_source.profile_for_space(m_source.active_space()))
+                continue;
             auto url = qstring_from_ak_string(tab->url().serialize());
             if (!tab->title().contains(query, Qt::CaseInsensitive) && !url.contains(query, Qt::CaseInsensitive))
                 continue;
@@ -120,7 +122,7 @@ private:
             };
             visit(visit, Application::bookmark_store().root_items());
             if (m_source.is_private() == WebView::IsPrivate::No) {
-                for (auto const& entry : Application::history_store().autocomplete_entries(ak_string_from_qstring(query), 6)) {
+                for (auto const& entry : Application::history_store(m_source.profile_for_space(m_source.active_space())).autocomplete_entries(ak_string_from_qstring(query), 6)) {
                     if (auto url = URL::Parser::basic_parse(entry.url); url.has_value())
                         add_url("History · " + qstring_from_ak_string(entry.title.value_or(entry.url)), *url);
                 }

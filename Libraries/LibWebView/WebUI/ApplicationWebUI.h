@@ -20,7 +20,7 @@ class WEBVIEW_API ApplicationWebUI final : public WebUI {
 
 public:
     struct Callbacks {
-        Function<void(u64 id, String const& host, IsPrivate)> on_open;
+        Function<void(u64 id, String const& host, IsPrivate, u64 profile_id)> on_open;
         Function<void(u64 id, String name, JsonValue data)> on_message;
         Function<void(u64 id)> on_close;
     };

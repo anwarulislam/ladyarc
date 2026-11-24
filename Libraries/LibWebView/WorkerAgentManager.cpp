@@ -460,7 +460,7 @@ void WorkerAgentManager::remove_private_workers_without_owners()
 // https://html.spec.whatwg.org/multipage/web-messaging.html#dom-broadcastchannel-postmessage
 // NB: The processes holding the destinations of step 6 are those hosting an environment whose storage key is
 //     sourceStorageKey. Each finds the destinations among its own BroadcastChannel objects.
-void WorkerAgentManager::post_broadcast_channel_message(Web::HTML::PostedBroadcastChannelMessage posted_message, CanonicalEnvironmentSettingsObject const& source_settings, IPC::ConnectionBase const& source_connection, IsPrivate is_private)
+void WorkerAgentManager::post_broadcast_channel_message(Web::HTML::PostedBroadcastChannelMessage posted_message, CanonicalEnvironmentSettingsObject const& source_settings, IPC::ConnectionBase const& source_connection, BrowsingSession const& session)
 {
     // 4. Let sourceOrigin be this's relevant settings object's origin.
     // 5. Let sourceStorageKey be the result of running obtain a storage key for non-storage purposes with this's relevant
@@ -476,7 +476,7 @@ void WorkerAgentManager::post_broadcast_channel_message(Web::HTML::PostedBroadca
     };
 
     WebContentClient::for_each_client([&](auto& client) {
-        if (&client == &source_connection || client.is_private() != is_private)
+        if (&client == &source_connection || &client.session() != &session)
             return IterationDecision::Continue;
         if (client.hosts_an_environment_with_storage_key(source_storage_key))
             client.async_broadcast_channel_message(message);
@@ -484,7 +484,7 @@ void WorkerAgentManager::post_broadcast_channel_message(Web::HTML::PostedBroadca
     });
 
     for_each_client_with_inside_settings([&](WebWorkerClient& client, CanonicalWorkerEnvironmentSettingsObject const& inside_settings) {
-        if (&client != &source_connection && client.is_private() == is_private && obtain_a_storage_key_for_non_storage_purposes(inside_settings) == source_storage_key)
+        if (&client != &source_connection && client.session().ptr() == &session && obtain_a_storage_key_for_non_storage_purposes(inside_settings) == source_storage_key)
             client.async_broadcast_channel_message(message);
         return IterationDecision::Continue;
     });

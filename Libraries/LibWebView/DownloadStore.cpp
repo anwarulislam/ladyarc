@@ -17,6 +17,7 @@ static constexpr u32 DOWNLOAD_SCHEMA_BASELINE_VERSION = 1u;
 static constexpr u32 DOWNLOAD_SCHEMA_RESTARTABILITY_VERSION = 2u;
 static constexpr u32 DOWNLOAD_SCHEMA_REPLACEMENT_VERSION = 3u;
 static constexpr u32 DOWNLOAD_SCHEMA_SAME_SITE_CONTEXT_VERSION = 4u;
+static constexpr u32 DOWNLOAD_SCHEMA_PROFILE_VERSION = 5u;
 
 static String serialize_segments(Vector<DownloadSegmentRecord> const& segments)
 {
@@ -112,6 +113,10 @@ ErrorOr<Database::MigrationOutcome> DownloadStore::migrate_schema(Database::Data
                 ALTER TABLE Downloads ADD COLUMN safe_method INTEGER NOT NULL DEFAULT 0;
             )#"sv,
         },
+        {
+            .version = DOWNLOAD_SCHEMA_PROFILE_VERSION,
+            .sql = "ALTER TABLE Downloads ADD COLUMN profile_id INTEGER NOT NULL DEFAULT 0;"sv,
+        },
     });
 
     return database.migrate("Downloads"sv, migrations, mode);
@@ -138,9 +143,10 @@ ErrorOr<NonnullOwnPtr<DownloadStore>> DownloadStore::create(Database::Database& 
             top_level_navigation,
             safe_method,
             created_time,
-            updated_time
+            updated_time,
+            profile_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             url = excluded.url,
             display_url = excluded.display_url,
@@ -155,7 +161,8 @@ ErrorOr<NonnullOwnPtr<DownloadStore>> DownloadStore::create(Database::Database& 
             same_site = excluded.same_site,
             top_level_navigation = excluded.top_level_navigation,
             safe_method = excluded.safe_method,
-            updated_time = excluded.updated_time;
+            updated_time = excluded.updated_time,
+            profile_id = excluded.profile_id;
     )#"sv));
 
     statements.delete_download = TRY(database.prepare_statement(R"#(
@@ -164,7 +171,7 @@ ErrorOr<NonnullOwnPtr<DownloadStore>> DownloadStore::create(Database::Database& 
     )#"sv));
 
     statements.list_downloads = TRY(database.prepare_statement(R"#(
-        SELECT id, url, display_url, destination, temporary_destination, total_size, etag, last_modified, segments, can_restart_from_zero, created_time, may_replace_destination, same_site, top_level_navigation, safe_method
+        SELECT id, url, display_url, destination, temporary_destination, total_size, etag, last_modified, segments, can_restart_from_zero, created_time, may_replace_destination, same_site, top_level_navigation, safe_method, profile_id
         FROM Downloads
         ORDER BY id ASC;
     )#"sv));
@@ -215,7 +222,8 @@ void DownloadStore::save_download(DownloadRecord const& download, UnixDateTime u
         download.same_site_context.is_top_level_navigation,
         download.same_site_context.is_safe_method,
         download.created_time,
-        updated_at);
+        updated_at,
+        download.profile_id);
 }
 
 void DownloadStore::remove_download(i64 id)
@@ -237,6 +245,9 @@ Vector<DownloadRecord> DownloadStore::resumable_downloads()
         m_statements.list_downloads,
         [&](auto statement_id) -> ErrorOr<void> {
             auto id = m_database->result_i64_checked(statement_id, 0);
+            auto profile = m_database->result_i64_checked(statement_id, 15);
+            if (profile.is_error() || profile.value() < 0)
+                return {};
             auto total_size = m_database->result_i64_checked(statement_id, 5);
             if (id.is_error() || total_size.is_error() || id.value() < 0 || total_size.value() < 0)
                 return {};
@@ -250,6 +261,7 @@ Vector<DownloadRecord> DownloadStore::resumable_downloads()
 
             downloads.append(DownloadRecord {
                 .id = id.value(),
+                .profile_id = profile.value(),
                 .url = m_database->result_column<String>(statement_id, 1),
                 .display_url = m_database->result_column<String>(statement_id, 2),
                 .destination = m_database->result_column<String>(statement_id, 3),

@@ -95,7 +95,7 @@ private:
 };
 
 View::View(InitialState initial_state)
-    : ViewImplementation(initial_state.is_private)
+    : ViewImplementation(initial_state.is_private, initial_state.profile_id)
     , m_system_theme(move(initial_state.system_theme))
     , m_screen_rects(move(initial_state.screen_rects))
     , m_websites_prefer_dark(initial_state.websites_prefer_dark)
@@ -125,6 +125,7 @@ View::InitialState View::initial_state_for_related_view() const
 {
     return {
         .is_private = is_private(),
+        .profile_id = session().profile_id(),
         .device_pixel_ratio = device_pixel_ratio(),
         .maximum_frames_per_second = maximum_frames_per_second(),
         .display_id = display_id(),
@@ -645,6 +646,7 @@ ViewState View::current_state() const
 {
     ViewState state;
     state.url = url();
+    state.profile_id = session().profile_id();
     state.displayed_url = displayed_url();
     state.title = title();
     state.handle = handle();

@@ -136,7 +136,7 @@ public:
     static RequestServerManager& request_server_manager() { return *the().m_request_server_manager; }
     static ImageDecoderManager& image_decoder_manager() { return *the().m_image_decoder_manager; }
     // The UI process's own client of the session's RequestServer with no site.
-    static ErrorOr<NonnullRefPtr<Requests::RequestClient>> request_server_client(IsPrivate = IsPrivate::No);
+    static ErrorOr<NonnullRefPtr<Requests::RequestClient>> request_server_client(IsPrivate = IsPrivate::No, u64 profile_id = 0);
     // The control connection of the default session's RequestServer with no site.
     static Requests::RequestControlClient& request_server_control_client();
 
@@ -182,6 +182,7 @@ public:
     // A click on a notification whose page is gone: Open the URL in a new foreground tab of that window, if it's
     // still open, or of the active window.
     virtual void open_url_in_new_tab_from_notification(URL::URL const&, [[maybe_unused]] Web::PageId originating_page, CanonicalTraversable*, IsPrivate) { }
+    virtual void open_url_from_profile_notification(URL::URL const& url, Web::PageId page, CanonicalTraversable* traversable, IsPrivate privacy, u64) { open_url_in_new_tab_from_notification(url, page, traversable, privacy); }
 
     void appearance_changed(Badge<ApplicationSettingsObserver>);
     void tab_settings_changed(Badge<ApplicationSettingsObserver>);
@@ -214,7 +215,7 @@ public:
 
     static BrowsingSession& default_session() { return *the().m_default_session; }
 
-    static NonnullRefPtr<BrowsingSession> session_for_new_view(IsPrivate);
+    static NonnullRefPtr<BrowsingSession> session_for_new_view(IsPrivate, u64 profile_id = 0);
 
     // Whether the windows and tabs of this run are kept for the next one. A headless run, a browser that WebDriver drives,
     // and one that logs process statistics never join a browser already running on their profile, so they keep none.
@@ -249,13 +250,14 @@ public:
     TabProcesses tab_processes() const;
     bool tabs_may_share_processes() const;
     ErrorOr<NonnullRefPtr<WebContentPage>> open_page_for_new_tab(IsPrivate);
+    ErrorOr<NonnullRefPtr<WebContentPage>> open_page_for_new_tab(BrowsingSession&);
     struct ChildFrameWebContentProcess {
         NonnullRefPtr<WebContentClient> client;
         Web::PageId page_id { 0 };
     };
     // For what may share a process with no page. It ends once nothing keeps it.
     ErrorOr<NonnullRefPtr<WebContentClient>> launch_web_content_process_without_page(BrowsingSession&);
-    ErrorOr<ChildFrameWebContentProcess> launch_child_frame_web_content_process(IsPrivate, Vector<Web::HTML::RemoteNavigableDescriptor> remote_navigables, Web::HTML::CrossProcessId root_navigable_id, Web::HTML::SessionHistoryEntryDescriptor initial_history_entry, Web::HTML::VisibilityState system_visibility_state);
+    ErrorOr<ChildFrameWebContentProcess> launch_child_frame_web_content_process(BrowsingSession&, Vector<Web::HTML::RemoteNavigableDescriptor> remote_navigables, Web::HTML::CrossProcessId root_navigable_id, Web::HTML::SessionHistoryEntryDescriptor initial_history_entry, Web::HTML::VisibilityState system_visibility_state);
 
     MediaSessionCoordinator& media_session_coordinator() { return m_media_session_coordinator; }
     virtual OwnPtr<MediaSessionPlatformBackend> create_media_session_platform_backend();
@@ -322,8 +324,10 @@ public:
     virtual void activate_or_open_tab_with_url(URL::URL const&) const;
     virtual void open_urls_in_new_tabs(ReadonlySpan<URL::URL>) const;
     virtual void open_url_in_new_window(URL::URL const&, IsPrivate) { }
+    virtual void open_url_in_new_window_from(URL::URL const& url, IsPrivate privacy, ViewImplementation const*) { open_url_in_new_window(url, privacy); }
     virtual void open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor, Web::HTML::ActivateTab, ViewImplementation const* source_view = nullptr) const;
     virtual void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, IsPrivate) { }
+    virtual void open_navigation_in_new_window_from(Web::HTML::PreparedNavigationDescriptor navigation, IsPrivate privacy, ViewImplementation const*) { open_navigation_in_new_window(move(navigation), privacy); }
 
     virtual void resolve_external_url_handler(URL::URL const&, ExternalURLHandlerCallback callback) const { callback(nullptr); }
 
@@ -718,6 +722,7 @@ private:
     OwnPtr<DownloadStore> m_download_store;
     RefPtr<BrowsingSession> m_default_session;
     WeakPtr<BrowsingSession> m_private_session;
+    HashMap<u64, NonnullRefPtr<BrowsingSession>> m_space_profiles;
     HashMap<int, WeakPtr<BrowsingSession>> m_request_server_client_sessions;
 
     // The RequestServer clients of the UI process itself, which may use the cookies of any site.

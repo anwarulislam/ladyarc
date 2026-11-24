@@ -162,13 +162,13 @@ public:
         int m_index { 0 };
     };
 
-    BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow is_popup_window = IsPopupWindow::No, WebView::IsPrivate = WebView::IsPrivate::No, Optional<u64> hub_view_id = {}, Optional<SessionWindowId> restored_session_window_id = {});
+    BrowserWindow(Vector<URL::URL> const& initial_urls, IsPopupWindow is_popup_window = IsPopupWindow::No, WebView::IsPrivate = WebView::IsPrivate::No, Optional<u64> hub_view_id = {}, Optional<SessionWindowId> restored_session_window_id = {}, QString initial_space = {});
     virtual ~BrowserWindow() override;
 
     WebContentView& view() const { return m_current_tab->view(); }
     WebView::IsPrivate is_private() const { return m_is_private; }
     SessionStore& session() const;
-    Optional<WebView::HistoryEntry> history_entry_for_url(URL::URL const&) const;
+    Optional<WebView::HistoryEntry> history_entry_for_url(URL::URL const&, QString space = {}) const;
     Optional<SessionWindowId> session_window_id() const { return m_session_window_id; }
 
     int tab_count() { return m_tabs_container->count(); }
@@ -189,7 +189,7 @@ public:
     void unpin_tab(Tab&);
     void activate_first_unpinned_tab();
 
-    Tab& create_new_tab(Web::HTML::ActivateTab activate_tab, TabLocation);
+    Tab& create_new_tab(Web::HTML::ActivateTab activate_tab, TabLocation, QString space = {});
     void duplicate_tab(Tab&, Web::HTML::ActivateTab = Web::HTML::ActivateTab::Yes, Optional<i32> history_step = {});
     void open_history_entry_in_new_tab(Tab&, int delta, Web::HTML::ActivateTab);
     void update_tab_audio_button(Tab&);
@@ -205,7 +205,7 @@ public:
     void show_page_card(PageCardSlot, QString const& title, QString const& text, Vector<PageCard::Button>);
     void reposition_page_cards();
 
-    Tab* activate_tab_with_url(URL::URL const&, URL::ExcludeFragment);
+    Tab* activate_tab_with_url(URL::URL const&, URL::ExcludeFragment, u64 profile_id);
     // Asks every tab's page if the window may close, without closing it, and reports the answer. Once the pages agree,
     // a close() goes straight through.
     void request_close_preflight(Function<void(bool approved)> on_complete);
@@ -215,7 +215,7 @@ public:
     void bring_to_front();
     // The tab showing this view, if it's one of this window's.
     Tab* tab_for_view(RemoteView const&) const;
-    Tab& create_new_tab(Web::HTML::ActivateTab, Optional<u64> hub_view_id);
+    Tab& create_new_tab(Web::HTML::ActivateTab, Optional<u64> hub_view_id, QString space = {});
     bool is_window_close_approved() const { return m_window_close_approved; }
     void report_activation_to_session_store();
     void cancel_window_close_preflight();
@@ -242,6 +242,11 @@ public:
 
     void update_tabs_display();
     void assign_space(Tab&, QString const&);
+    QString const& active_space() const { return m_active_space; }
+    u64 profile_for_space(QString const&) const;
+    static QString space_profile_key(QString const&);
+    static QString space_for_profile(u64 profile_id, QString preferred = {});
+    Tab& open_url_in_space(URL::URL const&, QString const&);
     static QString external_route_key(URL::URL const&);
     bool accepts_external_route() const { return is_private() == WebView::IsPrivate::No && m_is_popup_window == IsPopupWindow::No; }
     void set_compact_chrome();

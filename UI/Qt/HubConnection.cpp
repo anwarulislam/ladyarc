@@ -75,11 +75,11 @@ void HubConnection::crash_reports_changed()
 #endif
 }
 
-u64 HubConnection::fetch_search_suggestions(String engine_name, String query, WebView::IsPrivate is_private, Function<void(RequestResponse)> on_response)
+u64 HubConnection::fetch_search_suggestions(String engine_name, String query, WebView::IsPrivate is_private, u64 profile_id, Function<void(RequestResponse)> on_response)
 {
     auto request_id = m_next_request_id++;
     m_requests.set(request_id, move(on_response));
-    async_fetch_search_suggestions(request_id, move(engine_name), move(query), is_private);
+    async_fetch_search_suggestions(request_id, move(engine_name), move(query), is_private, profile_id);
     return request_id;
 }
 
@@ -280,24 +280,24 @@ void HubConnection::view_request_dictionary_lookup(u64 view_id, WebView::Diction
         view->on_request_dictionary_lookup(lookup, position);
 }
 
-void HubConnection::app_open_url_in_new_tab(URL::URL url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private)
+void HubConnection::app_open_url_in_new_tab(URL::URL url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id)
 {
-    Application::the().open_url_in_new_tab(url, activate_tab, source_view_id, is_private);
+    Application::the().open_url_in_new_tab(url, activate_tab, source_view_id, is_private, profile_id);
 }
 
-void HubConnection::app_open_url_in_new_window(URL::URL url, WebView::IsPrivate is_private)
+void HubConnection::app_open_url_in_new_window(URL::URL url, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id)
 {
-    Application::the().open_url_in_new_window(move(url), move(is_private));
+    Application::the().open_url_in_new_window(move(url), is_private, source_view_id, profile_id);
 }
 
-void HubConnection::app_open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private)
+void HubConnection::app_open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id)
 {
-    Application::the().open_navigation_in_new_tab(move(navigation), activate_tab, source_view_id, is_private);
+    Application::the().open_navigation_in_new_tab(move(navigation), activate_tab, source_view_id, is_private, profile_id);
 }
 
-void HubConnection::app_open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private)
+void HubConnection::app_open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id)
 {
-    Application::the().open_navigation_in_new_window(move(navigation), move(is_private));
+    Application::the().open_navigation_in_new_window(move(navigation), is_private, source_view_id, profile_id);
 }
 
 void HubConnection::app_set_clipboard_text(String text, WebView::Application::ClipboardType type)
@@ -350,9 +350,9 @@ void HubConnection::app_activate_or_open_tab_with_url(URL::URL url)
     Application::the().activate_or_open_tab_with_url(url);
 }
 
-void HubConnection::app_open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, Web::HTML::ActivateTab activate_tab)
+void HubConnection::app_open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id, Web::HTML::ActivateTab activate_tab)
 {
-    Application::the().open_view_in_new_tab(view_id, source_view_id, is_private, activate_tab);
+    Application::the().open_view_in_new_tab(view_id, source_view_id, is_private, profile_id, activate_tab);
 }
 
 void HubConnection::app_display_error_dialog(String message)
@@ -722,9 +722,9 @@ void HubConnection::app_focus_view_from_notification(u64 view_id)
     Application::the().focus_view_from_notification(view_id);
 }
 
-void HubConnection::app_open_url_in_new_tab_from_notification(URL::URL url, Optional<u64> view_id, WebView::IsPrivate is_private)
+void HubConnection::app_open_url_in_new_tab_from_notification(URL::URL url, Optional<u64> view_id, WebView::IsPrivate is_private, u64 profile_id)
 {
-    Application::the().open_url_in_new_tab_from_notification(url, view_id, is_private);
+    Application::the().open_url_in_new_tab_from_notification(url, view_id, is_private, profile_id);
 }
 
 void HubConnection::external_url_resolve_handler(u64 request_id, URL::URL url)
@@ -785,9 +785,9 @@ void HubConnection::app_open_new_window(Vector<URL::URL> urls)
         application.on_new_window(urls);
 }
 
-void HubConnection::web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private)
+void HubConnection::web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private, u64 profile_id)
 {
-    Application::web_ui_pages().page_opened(web_ui_id, host, is_private);
+    Application::web_ui_pages().page_opened(web_ui_id, host, is_private, profile_id);
 }
 
 void HubConnection::web_ui_message(u64 web_ui_id, String name, JsonValue data)

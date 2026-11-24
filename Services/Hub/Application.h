@@ -87,8 +87,10 @@ private:
     virtual void activate_or_open_tab_with_url(URL::URL const&) const override;
     virtual void open_urls_in_new_tabs(ReadonlySpan<URL::URL>) const override;
     virtual void open_url_in_new_window(URL::URL const&, WebView::IsPrivate) override;
+    virtual void open_url_in_new_window_from(URL::URL const&, WebView::IsPrivate, WebView::ViewImplementation const*) override;
     virtual void open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor, Web::HTML::ActivateTab, WebView::ViewImplementation const* source_view = nullptr) const override;
     virtual void open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate) override;
+    virtual void open_navigation_in_new_window_from(Web::HTML::PreparedNavigationDescriptor, WebView::IsPrivate, WebView::ViewImplementation const*) override;
     virtual NonnullRefPtr<Core::Promise<ByteString>> ask_user_for_download_path(ByteString const& file) const override;
     virtual void display_download_confirmation_dialog(StringView download_name, LexicalPath const& path) const override;
     virtual void display_error_dialog(StringView error_message) const override;
@@ -116,7 +118,7 @@ private:
     virtual Web::CSS::PreferredColorScheme interface_color_scheme() const override;
     virtual Optional<String> system_font_family() const override;
     virtual void focus_page_from_notification(WebView::WebContentPage& page) override;
-    virtual void open_url_in_new_tab_from_notification(URL::URL const& url, Web::PageId originating_page, WebView::CanonicalTraversable* canonical_traversable, WebView::IsPrivate is_private) override;
+    virtual void open_url_from_profile_notification(URL::URL const& url, Web::PageId originating_page, WebView::CanonicalTraversable* canonical_traversable, WebView::IsPrivate is_private, u64 profile_id) override;
     virtual bool supports_picture_in_picture() const override;
     virtual OwnPtr<WebView::PictureInPictureWindow> create_picture_in_picture_window(WebView::WebContentPage& requesting_page, WebView::CanonicalTraversable& canonical_traversable, Gfx::IntSize video_size) override;
     virtual void resolve_external_url_handler(URL::URL const& url, WebView::ExternalURLHandlerCallback callback) const override;
@@ -156,6 +158,7 @@ private:
     struct NewTabSource {
         Optional<u64> view_id;
         WebView::IsPrivate is_private { WebView::IsPrivate::No };
+        u64 profile_id { 0 };
     };
     NewTabSource new_tab_source(WebView::ViewImplementation const* source_view) const;
 

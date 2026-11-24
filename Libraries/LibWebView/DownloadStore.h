@@ -26,6 +26,7 @@ struct DownloadSegmentRecord {
 
 struct WEBVIEW_API DownloadRecord {
     i64 id { 0 };
+    i64 profile_id { 0 };
 
     String url;
     String display_url;

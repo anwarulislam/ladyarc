@@ -52,8 +52,9 @@ static JsonObject serialize_history_entry(WebView::HistoryEntry const& entry)
     return serialized;
 }
 
-HistoryPage::HistoryPage(u64 web_ui_id, WebView::IsPrivate is_private)
+HistoryPage::HistoryPage(u64 web_ui_id, WebView::IsPrivate is_private, u64 profile_id)
     : WebUIPage(web_ui_id)
+    , m_profile_id(profile_id)
     , m_is_private(is_private)
 {
 }
@@ -88,7 +89,7 @@ void HistoryPage::load_history_entries(JsonValue const& data)
     // NB: A private window keeps no history, so its page shows none of the normal windows' history.
     Vector<WebView::HistoryEntry> entries;
     if (m_is_private == WebView::IsPrivate::No)
-        entries = Application::history_store().list_entries(query, offset, *limit + 1);
+        entries = Application::history_store(m_profile_id).list_entries(query, offset, *limit + 1);
     auto has_more = entries.size() > *limit;
     if (has_more)
         entries.resize(*limit);
@@ -123,7 +124,7 @@ void HistoryPage::remove_history_entry(JsonValue const& data)
 
     // NB: What was typed to reach a bookmarked page stays, so the omnibox keeps offering it.
     auto remove_engagements = Application::bookmark_store().is_bookmarked(*parsed_url) ? WebView::RemoveHistoryEntryEngagements::No : WebView::RemoveHistoryEntryEngagements::Yes;
-    Application::history_store().remove_entry_for_url(*parsed_url, remove_engagements);
+    Application::history_store(m_profile_id).remove_entry_for_url(*parsed_url, remove_engagements);
 }
 
 void HistoryPage::forget_history_site(JsonValue const& data)
@@ -139,7 +140,7 @@ void HistoryPage::forget_history_site(JsonValue const& data)
     if (!parsed_url.has_value())
         return;
 
-    Application::history_store().remove_entries_for_same_site(*parsed_url);
+    Application::history_store(m_profile_id).remove_entries_for_same_site(*parsed_url);
 }
 
 }

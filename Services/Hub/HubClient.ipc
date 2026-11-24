@@ -216,6 +216,7 @@ struct Hub::TranslationTarget {
 
 // What the UI needs to know about a view at any time, without having to ask.
 struct Hub::ViewState {
+    u64 profile_id;
     URL::URL url;
     URL::URL displayed_url;
     Utf16String title;
@@ -296,17 +297,17 @@ endpoint HubClient
     spell_checker_learn(i64 document_tag, Utf16String word) =|
     spell_checker_suggest(u64 request_id, i64 document_tag, Utf16String text, u32 caret_offset) =|
     app_focus_view_from_notification(u64 view_id) =|
-    app_open_url_in_new_tab_from_notification(URL::URL url, Optional<u64> view_id, WebView::IsPrivate is_private) =|
+    app_open_url_in_new_tab_from_notification(URL::URL url, Optional<u64> view_id, WebView::IsPrivate is_private, u64 profile_id) =|
     external_url_resolve_handler(u64 request_id, URL::URL url) =|
     external_url_launch(u64 handler_id, u64 request_id, URL::URL url) =|
     external_url_release_handler(u64 handler_id) =|
     download_added(Hub::DownloadState download) =|
     download_updated(Hub::DownloadState download) =|
     download_removed(u64 id, WebView::IsPrivate is_private) =|
-    app_open_url_in_new_tab(URL::URL url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private) =|
-    app_open_url_in_new_window(URL::URL url, WebView::IsPrivate is_private) =|
-    app_open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private) =|
-    app_open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private) =|
+    app_open_url_in_new_tab(URL::URL url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id) =|
+    app_open_url_in_new_window(URL::URL url, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id) =|
+    app_open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id) =|
+    app_open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id) =|
     app_set_clipboard_text(String text, WebView::Application::ClipboardType type) =|
     app_insert_clipboard_item(Web::Clipboard::SystemClipboardItem item) =|
     app_update_tabs_display() =|
@@ -317,7 +318,7 @@ endpoint HubClient
     app_gpu_painting_changed(bool gpu_painting_enabled) =|
     app_open_urls_in_new_tabs(Vector<URL::URL> urls) =|
     app_activate_or_open_tab_with_url(URL::URL url) =|
-    app_open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, Web::HTML::ActivateTab activate_tab) =|
+    app_open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id, Web::HTML::ActivateTab activate_tab) =|
     app_display_error_dialog(String message) =|
     app_display_openssl_mismatch(String curl_openssl_version, String linked_openssl_version) =|
     app_display_update_check_result(WebView::UpdateCheckResult::Kind kind, Optional<String> version, WebView::InstallMethod install_method, WebView::UpdateCheckTrigger trigger) =|
@@ -326,7 +327,7 @@ endpoint HubClient
     app_read_clipboard_item(u64 request_id) =|
     app_ask_user_for_download_path(u64 request_id, ByteString file) =|
     settings_changed(ByteString settings_json, u64 last_applied_change_id) =|
-    web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private) =|
+    web_ui_opened(u64 web_ui_id, String host, WebView::IsPrivate is_private, u64 profile_id) =|
     web_ui_message(u64 web_ui_id, String name, JsonValue data) =|
     web_ui_closed(u64 web_ui_id) =|
     view_request_context_menu(u64 view_id, WebView::ContextMenuRequest request) =|

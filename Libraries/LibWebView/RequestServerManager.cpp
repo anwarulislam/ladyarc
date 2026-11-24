@@ -121,7 +121,15 @@ void RequestServerManager::for_each_instance(Function<IterationDecision(RequestS
 
 ErrorOr<NonnullRefPtr<RequestServerInstance>> RequestServerManager::launch(NonnullRefPtr<BrowsingSession> session, Optional<Utf16String> site)
 {
-    auto cache_path = site.has_value() ? cache_path_for_site(*site) : Application::request_server_options().cache_path;
+    auto cache_path = Application::request_server_options().cache_path;
+    if (site.has_value()) {
+        if (session->profile_id() == 0)
+            cache_path = cache_path_for_site(*site);
+        else
+            cache_path = cache_path_for_site(Utf16String::from_utf8(ByteString::formatted("space-profile/{}/{}", session->profile_id(), site->to_byte_string())));
+    } else if (session->profile_id() != 0) {
+        cache_path = LexicalPath::join(cache_path, "SpaceProfiles"sv, ByteString::number(session->profile_id())).string();
+    }
     auto instance = adopt_ref(*new RequestServerInstance(session, move(site), move(cache_path)));
     TRY(launch_process(*instance));
     m_instances.append(instance);

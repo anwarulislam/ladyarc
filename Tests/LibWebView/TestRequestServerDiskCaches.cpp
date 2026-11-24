@@ -49,6 +49,11 @@ TEST_CASE(site_cache_directories_cannot_be_named_without_the_key)
     auto cache_path = LexicalPath { site_server->cache_path() };
     EXPECT(!cache_path.basename().contains("normal"sv));
 
+    auto named = WebView::Application::session_for_new_view(WebView::IsPrivate::No, 17);
+    auto named_server = TRY_OR_FAIL(manager.instance_for_site(*named, site));
+    EXPECT_NE(named_server->cache_path(), cache_path.string());
+    EXPECT(FileSystem::is_directory(LexicalPath::join(named_server->cache_path(), "Cache"sv).string()));
+
     auto other_site_server = TRY_OR_FAIL(manager.instance_for_site(normal_session, "https://other.example"_utf16));
     EXPECT_NE(other_site_server->cache_path(), cache_path.string());
 

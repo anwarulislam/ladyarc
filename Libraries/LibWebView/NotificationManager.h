@@ -71,6 +71,7 @@ private:
         // Tag replacement and the per-origin cap never reach across sessions, so a private window's notification
         // can't close a normal window's and the other way around.
         IsPrivate is_private { IsPrivate::No };
+        u64 profile_id { 0 };
     };
 
     NotificationManager() = default;

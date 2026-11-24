@@ -113,6 +113,7 @@ struct WebView::ProcessSnapshot {
 // What it takes to make a view, which the UI asks for when the user opens a tab.
 struct Hub::NewViewRequest {
     WebView::IsPrivate is_private;
+    u64 profile_id;
     double device_pixel_ratio;
     double maximum_frames_per_second;
     Optional<u64> display_id;
@@ -135,7 +136,7 @@ endpoint HubServer
     send_web_ui_message(u64 web_ui_id, String name, JsonValue data) =|
     web_ui_consume_user_activation(u64 web_ui_id) => (bool consumed)
     fetch_public_pull_requests(u64 request_id, String owner, String repository) =|
-    fetch_search_suggestions(u64 request_id, String engine_name, String query, WebView::IsPrivate is_private) =|
+    fetch_search_suggestions(u64 request_id, String engine_name, String query, WebView::IsPrivate is_private, u64 profile_id) =|
     post_report(u64 request_id, URL::URL url, Vector<HTTP::Header> headers, ByteString body) =|
     stop_request(u64 request_id) =|
 

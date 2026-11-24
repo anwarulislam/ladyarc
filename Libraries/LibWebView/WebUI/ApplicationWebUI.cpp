@@ -48,7 +48,7 @@ void ApplicationWebUI::register_interfaces()
     m_id = s_next_id++;
     web_uis().set(m_id, this);
     if (callbacks().on_open)
-        callbacks().on_open(m_id, host(), client().is_private());
+        callbacks().on_open(m_id, host(), client().is_private(), client().session().profile_id());
 }
 
 void ApplicationWebUI::received_message(String name, JsonValue data)

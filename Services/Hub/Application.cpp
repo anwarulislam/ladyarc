@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibWebView/BrowsingSession.h>
 #include <AK/Hex.h>
 #include <AK/MemoryStream.h>
 #include <AK/Queue.h>
@@ -140,7 +141,7 @@ Optional<WebView::ViewImplementation&> Application::open_blank_new_tab(Web::HTML
     Optional<u64> source_view_id;
     if (related_view)
         source_view_id = related_view->view_id();
-    ui->async_app_open_view_in_new_tab(view.view_id(), source_view_id, view.is_private(), activate_tab);
+    ui->async_app_open_view_in_new_tab(view.view_id(), source_view_id, view.is_private(), view.session().profile_id(), activate_tab);
     return view;
 }
 
@@ -154,14 +155,14 @@ Application::NewTabSource Application::new_tab_source(WebView::ViewImplementatio
         source_view = &*active_view;
     if (!source_view)
         return {};
-    return { source_view->view_id(), source_view->is_private() };
+    return { source_view->view_id(), source_view->is_private(), source_view->session().profile_id() };
 }
 
 void Application::open_url_in_new_tab(URL::URL const& url, Web::HTML::ActivateTab activate_tab, WebView::ViewImplementation const* source_view) const
 {
     if (auto* ui = ConnectionFromUI::the()) {
         auto source = new_tab_source(source_view);
-        ui->async_app_open_url_in_new_tab(url, activate_tab, source.view_id, source.is_private);
+        ui->async_app_open_url_in_new_tab(url, activate_tab, source.view_id, source.is_private, source.profile_id);
     } else {
         WebView::Application::open_url_in_new_tab(url, activate_tab, source_view);
     }
@@ -189,15 +190,24 @@ void Application::open_urls_in_new_tabs(ReadonlySpan<URL::URL> urls) const
 
 void Application::open_url_in_new_window(URL::URL const& url, WebView::IsPrivate is_private)
 {
-    if (auto* ui = ConnectionFromUI::the())
-        ui->async_app_open_url_in_new_window(url, is_private);
+    open_url_in_new_window_from(url, is_private, nullptr);
+}
+
+void Application::open_url_in_new_window_from(URL::URL const& url, WebView::IsPrivate is_private, WebView::ViewImplementation const* view)
+{
+    if (auto* ui = ConnectionFromUI::the()) {
+        auto source = new_tab_source(view);
+        if (source.is_private != is_private)
+            source = {};
+        ui->async_app_open_url_in_new_window(url, is_private, source.view_id, source.profile_id);
+    }
 }
 
 void Application::open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, WebView::ViewImplementation const* source_view) const
 {
     if (auto* ui = ConnectionFromUI::the()) {
         auto source = new_tab_source(source_view);
-        ui->async_app_open_navigation_in_new_tab(move(navigation), activate_tab, source.view_id, source.is_private);
+        ui->async_app_open_navigation_in_new_tab(move(navigation), activate_tab, source.view_id, source.is_private, source.profile_id);
     } else {
         WebView::Application::open_navigation_in_new_tab(move(navigation), activate_tab, source_view);
     }
@@ -205,8 +215,17 @@ void Application::open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescri
 
 void Application::open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private)
 {
-    if (auto* ui = ConnectionFromUI::the())
-        ui->async_app_open_navigation_in_new_window(move(navigation), is_private);
+    open_navigation_in_new_window_from(move(navigation), is_private, nullptr);
+}
+
+void Application::open_navigation_in_new_window_from(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private, WebView::ViewImplementation const* view)
+{
+    if (auto* ui = ConnectionFromUI::the()) {
+        auto source = new_tab_source(view);
+        if (source.is_private != is_private)
+            source = {};
+        ui->async_app_open_navigation_in_new_window(move(navigation), is_private, source.view_id, source.profile_id);
+    }
 }
 
 NonnullRefPtr<Core::Promise<ByteString>> Application::ask_user_for_download_path(ByteString const& file) const
@@ -485,7 +504,7 @@ void Application::focus_page_from_notification(WebView::WebContentPage& page)
         ui->async_app_focus_view_from_notification(page.view().view_id());
 }
 
-void Application::open_url_in_new_tab_from_notification(URL::URL const& url, Web::PageId, WebView::CanonicalTraversable* canonical_traversable, WebView::IsPrivate is_private)
+void Application::open_url_from_profile_notification(URL::URL const& url, Web::PageId, WebView::CanonicalTraversable* canonical_traversable, WebView::IsPrivate is_private, u64 profile_id)
 {
     Optional<u64> view_id;
     if (canonical_traversable) {
@@ -493,7 +512,7 @@ void Application::open_url_in_new_tab_from_notification(URL::URL const& url, Web
             view_id = view->view_id();
     }
     if (auto* ui = ConnectionFromUI::the())
-        ui->async_app_open_url_in_new_tab_from_notification(url, view_id, is_private);
+        ui->async_app_open_url_in_new_tab_from_notification(url, view_id, is_private, profile_id);
 }
 
 void Application::resolve_external_url_handler(URL::URL const& url, WebView::ExternalURLHandlerCallback callback) const

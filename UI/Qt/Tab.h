@@ -83,7 +83,7 @@ class Tab final
 public:
     AK_ALLOC_WITH_KMALLOC;
 
-    Tab(BrowserWindow* window, Optional<u64> hub_view_id = {});
+    Tab(BrowserWindow* window, Optional<u64> hub_view_id = {}, QString space = {});
     Tab(BrowserWindow* window, DeferredTab);
     virtual ~Tab() override;
 

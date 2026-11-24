@@ -46,7 +46,7 @@ ConnectionFromUI::ConnectionFromUI(NonnullOwnPtr<IPC::Transport> transport)
         async_settings_changed(settings.serialized().to_byte_string(), m_last_applied_settings_change_id);
     };
     WebView::ApplicationWebUI::set_callbacks({
-        .on_open = [this](u64 id, String const& host, WebView::IsPrivate is_private) { async_web_ui_opened(id, host, is_private); },
+        .on_open = [this](u64 id, String const& host, WebView::IsPrivate is_private, u64 profile_id) { async_web_ui_opened(id, host, is_private, profile_id); },
         .on_message = [this](u64 id, String name, JsonValue data) { async_web_ui_message(id, move(name), move(data)); },
         .on_close = [this](u64 id) { async_web_ui_closed(id); },
     });
@@ -648,6 +648,7 @@ Messages::HubServer::CreateViewResponse ConnectionFromUI::create_view(Hub::NewVi
 {
     auto& view = Application::the().create_view({
         .is_private = request.is_private,
+        .profile_id = request.profile_id,
         .device_pixel_ratio = request.device_pixel_ratio,
         .maximum_frames_per_second = request.maximum_frames_per_second,
         .display_id = request.display_id,
@@ -682,7 +683,7 @@ void ConnectionFromUI::ui_did_start()
 
 // NB: The UI makes no requests of its own choosing. It names a search engine and a query, and the Hub makes the request
 //     for that engine's suggestions, as the UI's own settings say.
-void ConnectionFromUI::fetch_search_suggestions(u64 request_id, String engine_name, String query, WebView::IsPrivate is_private)
+void ConnectionFromUI::fetch_search_suggestions(u64 request_id, String engine_name, String query, WebView::IsPrivate is_private, u64 profile_id)
 {
     Optional<URL::URL> url;
     if (auto engine = Application::settings().find_search_engine_by_name(engine_name); engine.has_value())
@@ -696,7 +697,7 @@ void ConnectionFromUI::fetch_search_suggestions(u64 request_id, String engine_na
     request_headers->set({ "User-Agent"sv, Web::default_user_agent });
 
     static constexpr Array response_header_names { "Content-Type"sv };
-    start_request(request_id, "GET"sv, *url, request_headers, {}, HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials::Yes, is_private, response_header_names);
+    start_request(request_id, "GET"sv, *url, request_headers, {}, HTTP::CacheMode::Default, HTTP::Cookie::IncludeCredentials::Yes, is_private, response_header_names, profile_id);
 }
 
 void ConnectionFromUI::fetch_public_pull_requests(u64 request_id, String owner, String repository)
@@ -742,10 +743,10 @@ void ConnectionFromUI::post_report(u64 request_id, URL::URL url, Vector<HTTP::He
     start_request(request_id, "POST"sv, url, *request_headers, body, HTTP::CacheMode::NoStore, HTTP::Cookie::IncludeCredentials::No, WebView::IsPrivate::No, response_header_names);
 }
 
-void ConnectionFromUI::start_request(u64 request_id, ByteString const& method, URL::URL const& url, HTTP::HeaderList const& headers, ByteString const& body, HTTP::CacheMode cache_mode, HTTP::Cookie::IncludeCredentials include_credentials, WebView::IsPrivate is_private, ReadonlySpan<StringView> response_header_names)
+void ConnectionFromUI::start_request(u64 request_id, ByteString const& method, URL::URL const& url, HTTP::HeaderList const& headers, ByteString const& body, HTTP::CacheMode cache_mode, HTTP::Cookie::IncludeCredentials include_credentials, WebView::IsPrivate is_private, ReadonlySpan<StringView> response_header_names, u64 profile_id)
 {
     RefPtr<Requests::Request> request;
-    if (auto client = WebView::Application::request_server_client(is_private); !client.is_error())
+    if (auto client = WebView::Application::request_server_client(is_private, profile_id); !client.is_error())
         request = client.value()->start_request(method, url, HTTP::Cookie::SameSiteContext::same_site(), headers, body.bytes(), cache_mode, include_credentials);
     if (!request) {
         async_request_finished(request_id, true, {}, {}, {});

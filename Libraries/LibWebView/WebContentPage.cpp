@@ -3623,7 +3623,7 @@ Messages::WebContentClient::DidRequestStorageUsageResponse WebContentPage::did_r
 void WebContentPage::did_post_broadcast_channel_message(Web::HTML::PostedBroadcastChannelMessage message)
 {
     if (auto settings = hosted_environment(message.environment_id); settings.has_value())
-        WorkerAgentManager::the().post_broadcast_channel_message(move(message), *settings, client(), client().is_private());
+        WorkerAgentManager::the().post_broadcast_channel_message(move(message), *settings, client(), client().session());
 }
 
 void WebContentPage::did_finish_test(String text)

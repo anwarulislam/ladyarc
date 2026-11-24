@@ -123,9 +123,9 @@ void ViewImplementation::did_leave_owners_tab(Badge<PictureInPictureWindow>)
     });
 }
 
-ViewImplementation::ViewImplementation(IsPrivate is_private)
+ViewImplementation::ViewImplementation(IsPrivate is_private, u64 profile_id)
     : m_is_private(is_private)
-    , m_session(Application::session_for_new_view(is_private))
+    , m_session(Application::session_for_new_view(is_private, profile_id))
     , m_document_cookie_version_buffer(Core::create_shared_version_buffer())
     , m_view_id(s_view_count++)
 {
@@ -950,7 +950,7 @@ void ViewImplementation::open_navigation_in_new_window(Web::HTML::PreparedNaviga
         return;
     }
 
-    Application::the().open_navigation_in_new_window(move(navigation), is_private);
+    Application::the().open_navigation_in_new_window_from(move(navigation), is_private, this);
 }
 
 void ViewImplementation::open_url_in_new_window(URL::URL const& url, IsPrivate is_private)
@@ -960,7 +960,7 @@ void ViewImplementation::open_url_in_new_window(URL::URL const& url, IsPrivate i
         return;
     }
 
-    Application::the().open_url_in_new_window(url, is_private);
+    Application::the().open_url_in_new_window_from(url, is_private, this);
 }
 
 void ViewImplementation::load_html(StringView html)
@@ -3735,13 +3735,13 @@ void ViewImplementation::initialize_tab(Web::HTML::VisibilityState system_visibi
 {
     if (!traversable.has_value()) {
         // FIXME: Fail to open the tab, rather than crashing the whole application if this fails.
-        auto page = MUST(Application::the().open_page_for_new_tab(m_is_private));
+        auto page = MUST(Application::the().open_page_for_new_tab(session()));
         traversable = page->traversable();
     }
     display_traversable(*traversable, system_visibility_state);
     // The launched process's initial page, or the page the opener's process opened for the tab, displays it.
     VERIFY(page().is_open());
-    VERIFY(page().client().is_private() == m_is_private);
+    VERIFY(&page().client().session() == &session());
 
     if (m_window_handle.is_empty()) {
         m_window_handle = generate_random_uuid();
@@ -6005,16 +6005,16 @@ void ViewImplementation::download_url(URL::URL const& url, PromptForPath prompt_
 
     if (prompt_for_path == PromptForPath::No) {
         if (auto download_path = Application::the().default_path_for_downloaded_file(suggested_filename); !download_path.is_error())
-            Application::the().file_downloader().download_file(is_private(), url, download_path.release_value(), FileDownloader::MayReplaceDestination::No);
+            Application::the().file_downloader().download_file(is_private(), url, download_path.release_value(), FileDownloader::MayReplaceDestination::No, session().profile_id());
         return;
     }
 
-    Application::the().path_for_downloaded_file(suggested_filename)->when_resolved([is_private = is_private(), url](auto const& download_path) {
+    Application::the().path_for_downloaded_file(suggested_filename)->when_resolved([is_private = is_private(), profile_id = session().profile_id(), url](auto const& download_path) {
         // NB: A file at a path the user chose was there when the user chose to replace it, as saving asks before replacing.
         auto may_replace_destination = FileSystem::exists(download_path.string())
             ? FileDownloader::MayReplaceDestination::Yes
             : FileDownloader::MayReplaceDestination::No;
-        Application::the().file_downloader().download_file(is_private, url, download_path, may_replace_destination);
+        Application::the().file_downloader().download_file(is_private, url, download_path, may_replace_destination, profile_id);
     });
 }
 

@@ -12,7 +12,7 @@ namespace Ladybird {
 
 class HistoryPage final : public WebUIPage {
 public:
-    HistoryPage(u64 web_ui_id, WebView::IsPrivate);
+    HistoryPage(u64 web_ui_id, WebView::IsPrivate, u64 profile_id);
 
     virtual void received_message(String const& name, JsonValue const& data) override;
 
@@ -21,6 +21,7 @@ private:
     void remove_history_entry(JsonValue const&);
     void forget_history_site(JsonValue const&);
 
+    u64 m_profile_id;
     WebView::IsPrivate m_is_private { WebView::IsPrivate::No };
 };
 

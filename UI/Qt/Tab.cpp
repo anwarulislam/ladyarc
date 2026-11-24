@@ -171,11 +171,12 @@ public:
     Function<void()> on_reset;
 };
 
-Tab::Tab(BrowserWindow* window, Optional<u64> hub_view_id)
+Tab::Tab(BrowserWindow* window, Optional<u64> hub_view_id, QString space)
     : QWidget(window)
     , WebView::SettingsObserver(Application::settings())
     , m_window(window)
 {
+    m_space_name = space.isEmpty() ? window->active_space() : space;
     create_tab_shell();
     initialize(hub_view_id);
 }
@@ -207,6 +208,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
 
     auto view_initial_state = WebContentViewInitialState {
         .is_private = m_window->is_private(),
+        .profile_id = m_window->profile_for_space(m_space_name),
         .maximum_frames_per_second = m_window->refresh_rate(),
         .display_id = m_window->display_id(),
         .screen_shows_high_dynamic_range = m_window->screen_shows_high_dynamic_range(),
@@ -215,6 +217,8 @@ void Tab::initialize(Optional<u64> hub_view_id)
     };
 
     m_view = new WebContentView(this, hub_view_id, AK::move(view_initial_state));
+    if (hub_view_id.has_value() && m_window->is_private() == WebView::IsPrivate::No)
+        m_space_name = BrowserWindow::space_for_profile(m_view->profile_id(), m_space_name);
     // The window reports its geometry to its tabs as it is moved and resized, so a tab opened later has to be told
     // where the window stands now.
     m_view->set_window_position({ m_window->x(), m_window->y() });
@@ -223,7 +227,7 @@ void Tab::initialize(Optional<u64> hub_view_id)
     m_javascript_dialog->on_page_dim_change = [this](qreal dim) { m_view->set_page_dim(dim); };
 
     // The window's toolbar holds the address field while it shows this tab.
-    m_location_edit = new LocationEdit(this, Application::settings(), make<SuggestionProvider>(m_window->is_private()));
+    m_location_edit = new LocationEdit(this, Application::settings(), make<SuggestionProvider>(m_window->is_private(), m_view->profile_id()));
     m_location_edit->hide();
     m_location_edit->installEventFilter(this);
 

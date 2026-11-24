@@ -1334,13 +1334,13 @@ void Application::create_platform_actions()
 #endif
     m_web_ui_pages = make<WebUIPages>();
     m_bookmarks = make<Bookmarks>(*m_bookmark_store);
-    m_web_ui_pages->register_page("history"_string, "History"_string, [](u64 web_ui_id, WebView::IsPrivate is_private) -> NonnullOwnPtr<WebUIPage> {
-        return make<HistoryPage>(web_ui_id, is_private);
+    m_web_ui_pages->register_page("history"_string, "History"_string, [](u64 web_ui_id, WebView::IsPrivate is_private, u64 profile_id) -> NonnullOwnPtr<WebUIPage> {
+        return make<HistoryPage>(web_ui_id, is_private, profile_id);
     });
-    m_web_ui_pages->register_page("downloads"_string, "Downloads"_string, [](u64 web_ui_id, WebView::IsPrivate is_private) -> NonnullOwnPtr<WebUIPage> {
+    m_web_ui_pages->register_page("downloads"_string, "Downloads"_string, [](u64 web_ui_id, WebView::IsPrivate is_private, u64) -> NonnullOwnPtr<WebUIPage> {
         return make<DownloadsPage>(web_ui_id, is_private);
     });
-    m_web_ui_pages->register_page("version"_string, "Version"_string, [](u64 web_ui_id, WebView::IsPrivate) -> NonnullOwnPtr<WebUIPage> {
+    m_web_ui_pages->register_page("version"_string, "Version"_string, [](u64 web_ui_id, WebView::IsPrivate, u64) -> NonnullOwnPtr<WebUIPage> {
         return make<VersionPage>(web_ui_id);
     });
 
@@ -1496,9 +1496,9 @@ Optional<String> Application::system_font_family() const
 #endif
 }
 
-BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, WindowConfiguration const& configuration, BrowserWindow::IsPopupWindow is_popup_window, WebView::IsPrivate is_private, Optional<u64> hub_view_id, ShowWindow show_window, Optional<Web::HTML::PreparedNavigationDescriptor> initial_navigation)
+BrowserWindow& Application::new_window(Vector<URL::URL> const& initial_urls, WindowConfiguration const& configuration, BrowserWindow::IsPopupWindow is_popup_window, WebView::IsPrivate is_private, Optional<u64> hub_view_id, ShowWindow show_window, Optional<Web::HTML::PreparedNavigationDescriptor> initial_navigation, QString initial_space)
 {
-    auto* window = new BrowserWindow(initial_urls, is_popup_window, is_private, hub_view_id);
+    auto* window = new BrowserWindow(initial_urls, is_popup_window, is_private, hub_view_id, {}, initial_space);
 
     auto should_focus_location_editor = initial_urls.size() == 1 && initial_urls.first() == Application::settings().new_tab_page_url();
     if (should_focus_location_editor) {
@@ -1595,17 +1595,17 @@ void Application::create_session_store(ByteString const& data_directory, bool pe
 #endif
 }
 
-void Application::create_history_store(ByteString const& data_directory, bool uses_sql_database)
+bool Application::open_profile_history(ByteString const& data_directory, bool uses_sql_database, OwnPtr<WebView::FaviconStore>& favicons, OwnPtr<WebView::HistoryStore>& history, OwnPtr<WebView::AutocompleteService>& autocomplete)
 {
     auto create_autocomplete_service = [&](Optional<ByteString> history_database_directory) {
-        m_autocomplete_service = make<WebView::AutocompleteService>(Core::EventLoop::current(), move(history_database_directory));
+        autocomplete = make<WebView::AutocompleteService>(Core::EventLoop::current(), move(history_database_directory));
     };
 
     if (!uses_sql_database) {
-        m_favicon_store = WebView::FaviconStore::create();
-        m_history_store = WebView::HistoryStore::create_disabled();
+        favicons = WebView::FaviconStore::create();
+        history = WebView::HistoryStore::create_disabled();
         create_autocomplete_service({});
-        return;
+        return false;
     }
 
     auto created = [&]() -> ErrorOr<bool> {
@@ -1620,29 +1620,65 @@ void Application::create_history_store(ByteString const& data_directory, bool us
             return false;
         if (TRY(WebView::HistoryStore::migrate_schema(database)) != Database::MigrationOutcome::Success)
             return false;
-        m_favicon_store = TRY(WebView::FaviconStore::create(database));
-        m_history_store = TRY(WebView::HistoryStore::create(database));
+        favicons = TRY(WebView::FaviconStore::create(database));
+        history = TRY(WebView::HistoryStore::create(database));
         return true;
     }();
     if (!created.is_error() && created.value()) {
-        m_should_remove_unreferenced_favicons = true;
         // NB: The omnibox reads the history on a thread of its own, with a connection of its own.
         create_autocomplete_service(data_directory);
-        return;
+        return true;
     }
 
     if (created.is_error())
         dbgln("Unable to open the History database: {}", created.error());
     else
         dbgln("History database was created by a newer Ladybird version; favicons and history will not be persisted this session");
-    m_favicon_store = WebView::FaviconStore::create();
-    m_history_store = WebView::HistoryStore::create(*m_favicon_store);
+    favicons = WebView::FaviconStore::create();
+    history = WebView::HistoryStore::create(*favicons);
     create_autocomplete_service({});
+    return false;
+}
+
+void Application::create_history_store(ByteString const& data_directory, bool uses_sql_database)
+{
+    m_history_root = data_directory;
+    m_history_uses_database = uses_sql_database;
+    m_should_remove_unreferenced_favicons = open_profile_history(data_directory, uses_sql_database, m_favicon_store, m_history_store, m_autocomplete_service);
+}
+
+Application::ProfileHistory& Application::named_history(u64 profile_id)
+{
+    VERIFY(profile_id != 0);
+    auto existing = m_named_histories.find(profile_id);
+    if (existing != m_named_histories.end())
+        return *existing->value;
+    auto directory = LexicalPath::join(m_history_root, "SpaceProfiles"sv, ByteString::number(profile_id)).string();
+    auto stores = make<ProfileHistory>();
+    open_profile_history(directory, m_history_uses_database, stores->favicons, stores->history, stores->autocomplete);
+    auto& result = *stores;
+    m_named_histories.set(profile_id, move(stores));
+    return result;
+}
+
+WebView::HistoryStore& Application::history_store(u64 profile_id)
+{
+    return profile_id ? *the().named_history(profile_id).history : *the().m_history_store;
+}
+
+WebView::AutocompleteService& Application::profile_autocomplete(u64 profile_id)
+{
+    return profile_id ? *named_history(profile_id).autocomplete : *m_autocomplete_service;
 }
 
 Function<void()> Application::fetch_remote_suggestions(WebView::SearchEngine const& engine, String const& query, WebView::IsPrivate is_private, Function<void(RemoteResponse)> on_response)
 {
-    auto request_id = HubConnection::the().fetch_search_suggestions(engine.name, query, is_private,
+    return fetch_profile_suggestions(engine, query, is_private, 0, move(on_response));
+}
+
+Function<void()> Application::fetch_profile_suggestions(WebView::SearchEngine const& engine, String const& query, WebView::IsPrivate is_private, u64 profile_id, Function<void(RemoteResponse)> on_response)
+{
+    auto request_id = HubConnection::the().fetch_search_suggestions(engine.name, query, is_private, profile_id,
         [on_response = move(on_response)](HubConnection::RequestResponse response) {
             auto content_type = HTTP::HeaderList::create(move(response.headers))->get("Content-Type"sv);
             on_response({
@@ -1658,8 +1694,10 @@ Function<void()> Application::fetch_remote_suggestions(WebView::SearchEngine con
     };
 }
 
-WebView::FaviconStore& Application::favicon_store(WebView::IsPrivate is_private)
+WebView::FaviconStore& Application::favicon_store(WebView::IsPrivate is_private, u64 profile_id)
 {
+    if (is_private == WebView::IsPrivate::No && profile_id)
+        return *the().named_history(profile_id).favicons;
     if (is_private == WebView::IsPrivate::No)
         return *s_the->m_favicon_store;
     if (!s_the->m_private_favicon_store)
@@ -1694,6 +1732,14 @@ SessionStore& Application::session_store(WebView::IsPrivate is_private)
 void Application::did_clear_history_since(UnixDateTime since)
 {
     m_history_store->remove_entries_accessed_since(since);
+    auto& prefs = desktop_preferences();
+    prefs.beginGroup("profile-names");
+    auto profiles = prefs.childKeys();
+    prefs.endGroup();
+    for (auto const& key : profiles) {
+        if (auto id = key.toULongLong())
+            history_store(id).remove_entries_accessed_since(since);
+    }
     for (auto* store : { m_session_store.ptr(), m_private_session_store.ptr() }) {
         if (!store)
             continue;
@@ -1880,8 +1926,7 @@ BrowserWindow& Application::open_external_web_link(URL::URL const& url)
     }
     if (!target)
         target = &new_window({}, configuration_for_new_window());
-    auto& tab = target->new_tab_from_url(url, Web::HTML::ActivateTab::Yes, BrowserWindow::TabLocation::end());
-    target->assign_space(tab, space);
+    target->open_url_in_space(url, space);
     target->bring_to_front();
     return *target;
 }
@@ -1901,7 +1946,7 @@ BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsP
         .width = Web::DevicePixels { size.width() },
         .height = Web::DevicePixels { size.height() },
     };
-    auto& window = new_window({ url }, configuration, BrowserWindow::IsPopupWindow::Yes, is_private, {}, ShowWindow::No);
+    auto& window = new_window({ url }, configuration, BrowserWindow::IsPopupWindow::Yes, is_private, {}, ShowWindow::No, {}, source ? source->active_space() : QString {});
     window.setWindowFlags(Qt::Window);
     window.set_compact_chrome();
     auto* keep = new QPushButton("Open in Browser", &window);
@@ -2066,8 +2111,8 @@ void Application::reopen_recently_closed_tab(BrowserWindow* target_window, Optio
     i64 restored_tab_index = 0;
     for (auto& closed_tab : unit.tabs) {
         auto location = next_insertion_index.has_value() ? BrowserWindow::TabLocation::at_index(*next_insertion_index) : BrowserWindow::TabLocation::end();
-        auto& tab = window->create_new_tab(Web::HTML::ActivateTab::No, location);
-        window->assign_space(tab, closed_tab.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(closed_tab.space_name));
+        auto space = closed_tab.space_name.is_empty() ? QStringLiteral("Main") : qstring_from_ak_string(closed_tab.space_name);
+        auto& tab = window->create_new_tab(Web::HTML::ActivateTab::No, location, space);
         if (next_insertion_index.has_value())
             ++*next_insertion_index;
 
@@ -2362,33 +2407,11 @@ void Application::focus_view_from_notification(u64 view_id)
     window->bring_to_front();
 }
 
-void Application::open_url_in_new_tab_from_notification(URL::URL const& url, Optional<u64> view_id, WebView::IsPrivate is_private)
+void Application::open_url_in_new_tab_from_notification(URL::URL const& url, Optional<u64> view_id, WebView::IsPrivate is_private, u64 profile_id)
 {
-    BrowserWindow* window = nullptr;
-    if (view_id.has_value()) {
-        if (auto* view = RemoteView::find(*view_id))
-            window = window_for_view(*view);
-    }
-    // The site opens in the notification's own session: a private window's notification never lands in a normal
-    // window, nor a normal one in a private window.
-    if (window && window->is_private() != is_private)
-        window = nullptr;
-    if (!window && m_active_window && m_active_window->is_private() == is_private)
-        window = m_active_window;
-    if (!window) {
-        for (auto* widget : QApplication::topLevelWidgets()) {
-            if (auto* candidate = qobject_cast<BrowserWindow*>(widget); candidate && candidate->is_private() == is_private) {
-                window = candidate;
-                break;
-            }
-        }
-    }
-    if (!window) {
-        new_window({ url }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private);
-        return;
-    }
-    window->new_tab_from_url(url, Web::HTML::ActivateTab::Yes, BrowserWindow::TabLocation::end());
-    window->bring_to_front();
+    open_url_in_new_tab(url, Web::HTML::ActivateTab::Yes, view_id, is_private, profile_id);
+    if (auto* window = window_for_new_tab(view_id, is_private))
+        window->bring_to_front();
 }
 
 Vector<BookmarkItem::Bookmark> Application::bookmarks_for_all_tabs_in_active_window() const
@@ -2432,7 +2455,7 @@ Tab* Application::activate_tab_with_url(URL::URL const& url, URL::ExcludeFragmen
         if (window->is_private() != is_private)
             continue;
 
-        auto* tab = window->activate_tab_with_url(url, exclude_fragment);
+        auto* tab = window->activate_tab_with_url(url, exclude_fragment, m_active_window ? m_active_window->profile_for_space(m_active_window->active_space()) : 0);
         if (!tab)
             continue;
 
@@ -2450,7 +2473,7 @@ void Application::activate_or_open_tab_with_url(URL::URL const& url)
     if (auto* tab = activate_tab_with_url(url, URL::ExcludeFragment::Yes))
         tab->view().load(url);
     else
-        open_url_in_new_tab(url, Web::HTML::ActivateTab::Yes, {}, m_active_window ? m_active_window->is_private() : WebView::IsPrivate::No);
+        open_url_in_new_tab(url, Web::HTML::ActivateTab::Yes, {}, m_active_window ? m_active_window->is_private() : WebView::IsPrivate::No, m_active_window ? m_active_window->profile_for_space(m_active_window->active_space()) : 0);
 }
 
 BrowserWindow* Application::window_of_view(u64 view_id) const
@@ -2481,23 +2504,41 @@ BrowserWindow* Application::window_for_new_tab(Optional<u64> source_view_id, Web
     return nullptr;
 }
 
-void Application::open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, Web::HTML::ActivateTab activate_tab)
+static QString space_for_new_view(BrowserWindow* window, Optional<u64> source_id, WebView::IsPrivate privacy, u64 profile_id)
 {
-    if (auto* window = window_for_new_tab(source_view_id, is_private))
-        window->create_new_tab(activate_tab, view_id);
-    else
-        new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, view_id);
+    QString preferred;
+    if (window) {
+        preferred = window->active_space();
+        if (source_id.has_value()) {
+            if (auto* view = RemoteView::find(*source_id)) {
+                if (auto* tab = window->tab_for_view(*view))
+                    preferred = tab->space_name();
+            }
+        }
+    }
+    return privacy == WebView::IsPrivate::Yes ? preferred : BrowserWindow::space_for_profile(profile_id, preferred);
 }
 
-void Application::open_url_in_new_tab(URL::URL const& url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private) const
+void Application::open_view_in_new_tab(u64 view_id, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id, Web::HTML::ActivateTab activate_tab)
 {
     auto* window = window_for_new_tab(source_view_id, is_private);
+    auto space = space_for_new_view(window, source_view_id, is_private, profile_id);
+    if (window)
+        window->create_new_tab(activate_tab, view_id, space);
+    else
+        new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, view_id, ShowWindow::Yes, {}, space);
+}
+
+void Application::open_url_in_new_tab(URL::URL const& url, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id) const
+{
+    auto* window = window_for_new_tab(source_view_id, is_private);
+    auto space = space_for_new_view(window, source_view_id, is_private, profile_id);
     if (!window) {
-        const_cast<Application&>(*this).new_window({ url }, {}, BrowserWindow::IsPopupWindow::No, is_private);
+        const_cast<Application&>(*this).new_window({ url }, {}, BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, {}, space);
         return;
     }
 
-    window->new_tab_from_url(url, activate_tab, BrowserWindow::TabLocation::after_current_tab());
+    window->create_new_tab(activate_tab, BrowserWindow::TabLocation::after_current_tab(), space).navigate(url);
 }
 
 void Application::open_urls_in_new_tabs(ReadonlySpan<URL::URL> urls) const
@@ -2527,28 +2568,31 @@ void Application::open_urls_in_new_tabs(ReadonlySpan<URL::URL> urls) const
     }
 }
 
-void Application::open_url_in_new_window(URL::URL const& url, WebView::IsPrivate is_private)
+void Application::open_url_in_new_window(URL::URL const& url, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id)
 {
-    new_window({ url }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private);
+    auto space = space_for_new_view(window_for_new_tab(source_view_id, is_private), source_view_id, is_private, profile_id);
+    new_window({ url }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, {}, space);
 }
 
-void Application::open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private) const
+void Application::open_navigation_in_new_tab(Web::HTML::PreparedNavigationDescriptor navigation, Web::HTML::ActivateTab activate_tab, Optional<u64> source_view_id, WebView::IsPrivate is_private, u64 profile_id) const
 {
     auto* window = window_for_new_tab(source_view_id, is_private);
+    auto space = space_for_new_view(window, source_view_id, is_private, profile_id);
     if (!window) {
         auto url = navigation.url;
-        const_cast<Application&>(*this).new_window({ move(url) }, {}, BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, move(navigation));
+        const_cast<Application&>(*this).new_window({ move(url) }, {}, BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, move(navigation), space);
         return;
     }
 
-    auto& tab = window->create_new_tab(activate_tab, BrowserWindow::TabLocation::after_current_tab());
+    auto& tab = window->create_new_tab(activate_tab, BrowserWindow::TabLocation::after_current_tab(), space);
     tab.view().load(move(navigation));
 }
 
-void Application::open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private)
+void Application::open_navigation_in_new_window(Web::HTML::PreparedNavigationDescriptor navigation, WebView::IsPrivate is_private, Optional<u64> source_view_id, u64 profile_id)
 {
     auto url = navigation.url;
-    new_window({ move(url) }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, move(navigation));
+    auto space = space_for_new_view(window_for_new_tab(source_view_id, is_private), source_view_id, is_private, profile_id);
+    new_window({ move(url) }, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, is_private, {}, ShowWindow::Yes, move(navigation), space);
 }
 
 void Application::ask_user_for_download_path(u64 request_id, ByteString const& file) const

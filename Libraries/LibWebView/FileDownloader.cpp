@@ -97,6 +97,7 @@ private:
 };
 
 struct FileDownloader::ActiveDownload {
+    u64 profile_id { 0 };
     AK_ALLOC_WITH_KMALLOC;
 
     ActiveDownload(NonnullOwnPtr<Core::File> file, LexicalPath temporary_destination)
@@ -213,13 +214,14 @@ static String status_to_error_string(Optional<Requests::NetworkError> const& net
     return MUST(String::formatted("Received error response code {} while downloading file", *response_code));
 }
 
-u64 FileDownloader::download_file(IsPrivate is_private, URL::URL const& url, LexicalPath destination, MayReplaceDestination may_replace_destination)
+u64 FileDownloader::download_file(IsPrivate is_private, URL::URL const& url, LexicalPath destination, MayReplaceDestination may_replace_destination, u64 profile_id)
 {
     auto download_id = start_download(is_private, url, move(destination), {}, may_replace_destination);
     auto* active = active_download(download_id);
     if (!active)
         return download_id;
 
+    active->profile_id = profile_id;
     active->can_issue_own_requests = true;
     active->can_restart_from_zero = true;
     start_download_request(download_id, url);
@@ -242,7 +244,7 @@ void FileDownloader::start_download_request(u64 download_id, URL::URL const& url
     auto request_headers = HTTP::HeaderList::create();
     request_headers->set({ "User-Agent"sv, Web::default_user_agent });
 
-    auto client = Application::request_server_client(download->is_private);
+    auto client = Application::request_server_client(download->is_private, active->profile_id);
     if (client.is_error()) {
         fail_download(download_id, MUST(String::formatted("Unable to launch RequestServer: {}", client.error())));
         return;
@@ -299,6 +301,8 @@ u64 FileDownloader::adopt_download(IsPrivate is_private, URL::URL const& url, Le
     if (!active)
         return download_id;
 
+    if (auto owner = Application::the().session_for_request_server_client(owner_client_id))
+        active->profile_id = owner->profile_id();
     active->effective_url = url;
     active->can_issue_own_requests = true;
     active->same_site_context = same_site_context;
@@ -631,7 +635,7 @@ void FileDownloader::start_segment_request(u64 download_id, size_t segment_index
 
     segment.request_is_ranged = true;
 
-    auto client = Application::request_server_client(download->is_private);
+    auto client = Application::request_server_client(download->is_private, active->profile_id);
     if (client.is_error()) {
         fail_download(download_id, MUST(String::formatted("Unable to launch RequestServer: {}", client.error())));
         return;
@@ -1354,7 +1358,8 @@ void FileDownloader::persist_download_snapshot(u64 id, PersistUrgency urgency)
     if (!download || !active)
         return;
 
-    if (download->is_private == IsPrivate::Yes)
+    // Resumable records created before named profiles carry no session identity.
+    if (download->is_private == IsPrivate::Yes || active->profile_id > static_cast<u64>(NumericLimits<i64>::max()))
         return;
 
     if (!download->can_resume || !download->total_size.has_value() || !status_is_active(download->status))
@@ -1369,6 +1374,7 @@ void FileDownloader::persist_download_snapshot(u64 id, PersistUrgency urgency)
 
     DownloadRecord record {
         .id = static_cast<i64>(download->id),
+        .profile_id = static_cast<i64>(active->profile_id),
         .url = active->effective_url.serialize(),
         .display_url = download->url.serialize(),
         .destination = String::from_byte_string(download->destination.string()).release_value_but_fixme_should_propagate_errors(),
@@ -1497,6 +1503,7 @@ bool FileDownloader::restore_persisted_download(DownloadRecord& record)
     active->same_site_context = record.same_site_context;
     active->created_time = record.created_time;
     active->restored_from_disk = true;
+    active->profile_id = static_cast<u64>(record.profile_id);
     active->range_support.supports_ranges = true;
     active->range_support.total_size = total_size;
     active->range_support.validator.etag = move(record.etag);

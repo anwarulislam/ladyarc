@@ -78,6 +78,7 @@ public:
     void reset_site_permissions(URL::Origin const& origin) { HubConnection::the().async_view_reset_site_permissions(view_id(), origin); }
     void did_show_permission_prompt(WebView::PermissionPromptRequest const& request) { HubConnection::the().async_view_did_show_permission_prompt(view_id(), request); }
     u64 view_id() const { return m_view_id; }
+    u64 profile_id() const { return m_state.profile_id; }
     pid_t web_content_pid() const { return m_state.web_content_pid; }
     URL::URL url() const { return m_state.url; }
     URL::URL const& displayed_url() const { return m_state.displayed_url; }
