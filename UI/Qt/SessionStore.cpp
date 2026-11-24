@@ -1681,7 +1681,7 @@ SessionStore::WindowMetadataWrite SessionStore::window_metadata_write(SessionWin
             continue;
         write.tabs_in_order.append(pending.tab_id);
         if (pending.tab.pinned)
-            write.pinned_tabs.set(pending.tab_id);
+            write.pinned_tabs.set(pending.tab_id, pending.tab.pin_home_url);
     }
     write.active_tab_index = index_as_i64(window.tabs.find_first_index(window.active_tab).value_or(0));
     return write;
@@ -1705,14 +1705,14 @@ Optional<SessionStore::WindowMetadataWrite> SessionStore::remaining_window_write
                 continue;
             write.tabs_in_order.append(member.tab_id);
             if (member.tab.pinned)
-                write.pinned_tabs.set(member.tab_id);
+                write.pinned_tabs.set(member.tab_id, member.tab.pin_home_url);
         }
         for (auto const& tab_pending : m_pending_tab_closes) {
             if (tab_pending.tab.window_id != window_id || tab_pending.tab_id == closing_tab || write.tabs_in_order.contains_slow(tab_pending.tab_id))
                 continue;
             write.tabs_in_order.append(tab_pending.tab_id);
             if (tab_pending.tab.pinned)
-                write.pinned_tabs.set(tab_pending.tab_id);
+                write.pinned_tabs.set(tab_pending.tab_id, tab_pending.tab.pin_home_url);
         }
         auto last_index = write.tabs_in_order.is_empty() ? 0 : index_as_i64(write.tabs_in_order.size() - 1);
         write.active_tab_index = min(pending.active_tab_index, last_index);
