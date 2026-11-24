@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: ladyarc-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -53,7 +53,8 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: Build/caches/vcpkg-binary-cache
-          key: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-${{ hashFiles('vcpkg*.json', 'Meta/CMake/vcpkg/**', '.github/workflows/ladyarc-release.yml') }}
+          key: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-${{ hashFiles('vcpkg*.json', 'Meta/CMake/vcpkg/**', '.github/actions/setup/action.yml') }}
+          restore-keys: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-
 
       - name: Configure the browser
         env:
@@ -82,6 +83,14 @@ jobs:
           path: Build/caches/vcpkg-binary-cache
           key: ${{ steps.dependencies.outputs.cache-primary-key }}
 
+      - name: Compile the desktop UI and Hub interfaces first
+        run: |
+          ninja -C Build -t targets all > "$RUNNER_TEMP/ninja-targets"
+          awk -F': ' '/(UI\/Qt|Services\/Hub)\/CMakeFiles\/.*\.o: CXX/ { print $1 }' \
+            "$RUNNER_TEMP/ninja-targets" > "$RUNNER_TEMP/desktop-objects"
+          test -s "$RUNNER_TEMP/desktop-objects"
+          xargs ninja -C Build -j3 -k8 < "$RUNNER_TEMP/desktop-objects"
+
       - name: Build the browser and its services
         run: cmake --build Build --parallel 3
 
@@ -91,15 +100,8 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.arch }}
         run: |
-          cpack -G TXZ -B packages -D CPACK_COMPONENTS_ALL=ladybird_Runtime \
-            -D CPACK_ARCHIVE_COMPRESSION_LEVEL=3
-          archives=(packages/ladybird-*.tar.xz)
-          test "${#archives[@]}" -eq 1 && test -s "${archives[0]}"
-          mkdir -p dist
-          mv "${archives[0]}" "dist/ladyarc-$PLATFORM-$ARCH.tar.xz"
-          tar -tf "dist/ladyarc-$PLATFORM-$ARCH.tar.xz" > package-contents.txt
-          grep -E '(^|/)(ladybird|Ladybird\.app/Contents/MacOS/[Ll]adybird)$' package-contents.txt
-          grep -E '(^|/)WebContent($|\.app/Contents/MacOS/WebContent$)' package-contents.txt
+          cmake --install . --prefix "$PWD/runtime" --component ladybird_Runtime
+          python3 ../Meta/package-ladyarc.py runtime dist "$PLATFORM" "$ARCH"
 
       - name: Collect corresponding third-party sources
         if: github.event_name == 'release'

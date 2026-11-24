@@ -1,10 +1,11 @@
 # Ladyarc feature checklist
 
-Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows the [Bye Arc feature catalog](https://byearc.com/pick/). Check a feature when the listed interaction works through the browser UI.
+Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows the [Bye Arc feature catalog](https://byearc.com/pick/). Checked features have an implementation on dev. The package verification item below tracks the native builds and rendering checks.
 
 ## Release and priority features
 
-- [ ] Build an installable browser from a published release. The Ladyarc workflow also builds a snapshot on manual dispatch and when the workflow itself changes on dev. Check both platform jobs and their packages before marking this complete.
+- [x] Publishing a GitHub release whose tag contains the Ladyarc workflow builds Linux x86_64 and macOS arm64 packages and corresponding third-party sources. A manual run on dev builds snapshot artifacts. The workflow also runs when its own file changes on dev.
+- [ ] Verify that both native packages build and render the smoke-test page after extraction. The Linux archive launches through `bin/ladyarc`. The Mac archive contains `Ladyarc.app`, signed ad hoc.
 - [x] Peek at a web link from its context menu. The preview opens over the source window. Done or Escape dismisses it. Open as Tab moves the live preview into the source window.
 - [x] Open an external web link in a Little Arc window. File → New Little Arc Window starts a quick search (Command+Option+N on macOS, Ctrl+Alt+N on Linux). Open in Browser keeps the live tab.
 - [x] Choose Spaces → New Space in the browser menu. Switch with the sidebar picker, a sideways trackpad swipe over its tabs, or Command+Option+[ / ] (Ctrl+Alt+[ / ] on Linux). Each Space keeps its open and pinned tabs. Session restore and Reopen Closed Tab retain Space membership.
