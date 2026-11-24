@@ -35,6 +35,8 @@ class QMenuBar;
 class QSettings;
 class QWidget;
 
+#include <memory>
+
 namespace Ladybird {
 
 class WebUIPages;
@@ -343,6 +345,8 @@ private:
     void did_clear_history_since(UnixDateTime);
     void create_session_store(ByteString const& data_directory, bool persists_sessions);
     struct ProfileHistory {
+        AK_ALLOC_WITH_KMALLOC;
+
         OwnPtr<WebView::FaviconStore> favicons;
         OwnPtr<WebView::HistoryStore> history;
         OwnPtr<WebView::AutocompleteService> autocomplete;
@@ -398,7 +402,7 @@ private:
     OwnPtr<WebView::FaviconStore> m_favicon_store;
     OwnPtr<WebView::FaviconStore> m_private_favicon_store;
     OwnPtr<BookmarkStore> m_bookmark_store;
-    OwnPtr<QSettings> m_desktop_preferences;
+    std::unique_ptr<QSettings> m_desktop_preferences;
     OwnPtr<WebView::HistoryStore> m_history_store;
     OwnPtr<WebView::AutocompleteService> m_autocomplete_service;
     bool m_should_remove_unreferenced_favicons { false };
