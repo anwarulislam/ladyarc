@@ -5,11 +5,6 @@ on:
     branches: [dev]
     paths:
       - '.github/workflows/ladyarc-release.yml'
-      - 'UI/**'
-      - 'Libraries/**'
-      - 'Services/**'
-      - 'Meta/**'
-      - 'CMakeLists.txt'
   release:
     types: [published]
   workflow_dispatch:
