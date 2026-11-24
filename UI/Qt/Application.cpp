@@ -125,6 +125,7 @@
 #include <QSaveFile>
 #include <QScreen>
 #include <QShortcut>
+#include <QStatusBar>
 #include <QStandardPaths>
 #include <QTimer>
 
@@ -408,6 +409,14 @@ public:
         m_new_window_action->setShortcuts(QKeySequence::keyBindings(QKeySequence::StandardKey::New));
         QObject::connect(m_new_window_action, &QAction::triggered, this, []() { Application::the().open_new_window(WebView::IsPrivate::No); });
 
+        m_little_window_action = make_action("New Little Arc Window");
+        m_little_window_action->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_N));
+        QObject::connect(m_little_window_action, &QAction::triggered, this, [] {
+            auto& app = Application::the();
+            auto* source = app.active_window_if_any();
+            app.open_little_window(Application::settings().new_tab_page_url(), source ? source->is_private() : WebView::IsPrivate::No);
+        });
+
         m_new_private_window_action = make_action("New Pri&vate Window");
         m_new_private_window_action->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N));
         QObject::connect(m_new_private_window_action, &QAction::triggered, this, []() { Application::the().open_new_window(WebView::IsPrivate::Yes); });
@@ -658,6 +667,7 @@ private:
 
     QAction* m_new_tab_action { nullptr };
     QAction* m_new_window_action { nullptr };
+    QAction* m_little_window_action { nullptr };
     QAction* m_new_private_window_action { nullptr };
     QAction* m_reopen_recently_closed_tab_action { nullptr };
     QAction* m_close_current_tab_action { nullptr };
@@ -1851,6 +1861,41 @@ void Application::open_new_tab()
     }
 
     m_active_window->open_new_tab();
+}
+
+BrowserWindow& Application::open_little_window(URL::URL const& url, WebView::IsPrivate is_private)
+{
+    QPointer<BrowserWindow> source = m_active_window;
+    if (source && source->is_private() != is_private)
+        source = nullptr;
+    auto* screen = source ? source->screen() : QGuiApplication::primaryScreen();
+    auto bounds = screen->availableGeometry();
+    auto size = QSize(640, 480).boundedTo(bounds.size());
+    auto center = source ? source->frameGeometry().center() : bounds.center();
+    WindowConfiguration configuration {
+        .x = Web::DevicePixels { qBound(bounds.left(), center.x() - size.width() / 2, bounds.right() - size.width() + 1) },
+        .y = Web::DevicePixels { qBound(bounds.top(), center.y() - size.height() / 2, bounds.bottom() - size.height() + 1) },
+        .width = Web::DevicePixels { size.width() },
+        .height = Web::DevicePixels { size.height() },
+    };
+    auto& window = new_window({ url }, configuration, BrowserWindow::IsPopupWindow::Yes, is_private, {}, ShowWindow::No);
+    window.setWindowFlags(Qt::Window);
+    window.set_compact_chrome();
+    auto* keep = new QPushButton("Open in Browser", &window);
+    window.statusBar()->addPermanentWidget(keep);
+    QObject::connect(keep, &QPushButton::clicked, &window, [this, source, &window] {
+        if (auto* tab = window.current_tab()) {
+            auto& target = source ? *source : new_window({}, configuration_for_new_window(), BrowserWindow::IsPopupWindow::No, window.is_private());
+            window.move_tab_to_window(window.tab_index(tab), target, target.tab_count());
+            target.bring_to_front();
+        }
+    });
+    window.set_window_rect(configuration.x, configuration.y, configuration.width, configuration.height);
+    window.show();
+    window.bring_to_front();
+    if (url == Application::settings().new_tab_page_url() && window.current_tab())
+        window.current_tab()->focus_location_editor();
+    return window;
 }
 
 void Application::open_new_window(WebView::IsPrivate is_private)
@@ -3130,6 +3175,7 @@ QMenuBar* Application::create_application_menu_bar(ForBrowserWindow for_browser_
     auto* file_menu = menu_bar->addMenu("&File");
     file_menu->addAction(new_tab_action());
     file_menu->addAction(new_window_action());
+    file_menu->addAction(little_window_action());
     file_menu->addAction(new_private_window_action());
     file_menu->addAction(reopen_recently_closed_tab_action());
     if (for_browser_window == ForBrowserWindow::Yes)
@@ -3242,6 +3288,7 @@ DEFINE_APP_MENU_GETTER(QMenu, debug_menu);
 DEFINE_APP_MENU_GETTER(QMenu, help_menu);
 DEFINE_APP_MENU_GETTER(QAction, new_tab_action);
 DEFINE_APP_MENU_GETTER(QAction, new_window_action);
+DEFINE_APP_MENU_GETTER(QAction, little_window_action);
 DEFINE_APP_MENU_GETTER(QAction, new_private_window_action);
 DEFINE_APP_MENU_GETTER(QAction, reopen_recently_closed_tab_action);
 DEFINE_APP_MENU_GETTER(QAction, close_current_tab_action);

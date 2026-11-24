@@ -138,6 +138,7 @@ public:
 
     void open_new_tab();
     void open_new_window(WebView::IsPrivate);
+    BrowserWindow& open_little_window(URL::URL const&, WebView::IsPrivate = WebView::IsPrivate::No);
     enum class ReopenClosedWindow {
         InNewWindow,
         InTargetWindow,
@@ -197,6 +198,7 @@ public:
 
     QAction* new_tab_action();
     QAction* new_window_action();
+    QAction* little_window_action();
     QAction* new_private_window_action();
     QAction* reopen_recently_closed_tab_action();
     QAction* close_current_tab_action();

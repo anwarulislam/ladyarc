@@ -489,6 +489,7 @@ void BrowserWindow::initialize_application_actions()
     // Add all actions to the window itself. This allows shortcuts to activate when the system menu bar is not visible.
     addAction(application.new_tab_action());
     addAction(application.new_window_action());
+    addAction(application.little_window_action());
     addAction(application.new_private_window_action());
     addAction(application.reopen_recently_closed_tab_action());
     addAction(application.close_current_tab_action());
@@ -548,6 +549,7 @@ void BrowserWindow::initialize_ladybird_menu()
 
     m_ladybird_menu->addAction(application.new_tab_action());
     m_ladybird_menu->addAction(application.new_window_action());
+    m_ladybird_menu->addAction(application.little_window_action());
     m_ladybird_menu->addAction(application.new_private_window_action());
     m_ladybird_menu->addAction(application.reopen_recently_closed_tab_action());
     if (m_is_private == WebView::IsPrivate::Yes) {
