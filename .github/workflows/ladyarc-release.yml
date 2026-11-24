@@ -48,16 +48,39 @@ jobs:
           build_preset: Distribution
           use_caches: 'false'
 
+      - name: Restore compiled dependencies
+        id: dependencies
+        uses: actions/cache/restore@v6
+        with:
+          path: Build/caches/vcpkg-binary-cache
+          key: ladyarc-v1-${{ matrix.runner }}-${{ matrix.arch }}-${{ hashFiles('vcpkg*.json', 'Meta/CMake/vcpkg/**', '.github/workflows/ladyarc-release.yml') }}
+
       - name: Configure the browser
         env:
+          CC: clang
+          CXX: clang++
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           version="${RELEASE_TAG#v}"
+          source_url=""
+          if [[ -n "$RELEASE_TAG" ]]; then
+            source_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/ladyarc-$PLATFORM-$ARCH-third-party-sources.tar"
+          fi
           cmake --preset Distribution -B Build \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             "-DPython3_EXECUTABLE=$pythonLocation/bin/python" \
+            "-DLADYARC_SOURCE_BUNDLE_URL=$source_url" -DLADYBIRD_ENABLE_UPDATE_CHECK=OFF -DLADYBIRD_BASELINE_CPU_TARGET=ON \
             "-DLADYBIRD_VERSION=$version" -DBUILD_TESTING=OFF \
             -DLADYBIRD_ENABLE_LTO=OFF -DLADYBIRD_GENERATE_SYMBOL_FILES=OFF
+
+      - name: Save compiled dependencies
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: Build/caches/vcpkg-binary-cache
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
 
       - name: Build the browser and its services
         run: cmake --build Build --parallel 3
@@ -113,4 +136,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" dist/* --clobber
+        working-directory: dist
+        run: |
+          sha256sum ./*.tar* > SHA256SUMS
+          gh release upload "$TAG" ./*.tar* SHA256SUMS --clobber

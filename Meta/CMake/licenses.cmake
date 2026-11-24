@@ -44,6 +44,9 @@ endif()
 # LICENSES.txt points to them.
 if ((LADYBIRD_VCPKG_TYPE STREQUAL "distribution" OR building_flatpak) AND NOT LADYBIRD_VERSION STREQUAL "")
     list(APPEND licenses_arguments --release)
+    if (LADYARC_SOURCE_BUNDLE_URL)
+        list(APPEND licenses_arguments --source-bundle-url "${LADYARC_SOURCE_BUNDLE_URL}")
+    endif()
 endif()
 
 add_custom_command(

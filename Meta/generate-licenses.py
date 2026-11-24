@@ -743,7 +743,17 @@ def generate(args: argparse.Namespace) -> str:
         "Ladybird is distributed under the BSD 2-Clause License below. It includes the third-party software listed",
         "after that, under the licenses reproduced with each of them.",
     ]
-    if lgpl and args.release:
+    if lgpl and args.source_bundle_url:
+        introduction += [
+            "",
+            "The corresponding sources, patches, and build scripts for these LGPL libraries are in the release bundle:",
+            args.source_bundle_url,
+            "",
+            *[f"  {library}" for library, _ in lgpl],
+            "",
+            "Ladyarc build instructions and source are available at https://github.com/anwarulislam/ladyarc.",
+        ]
+    elif lgpl and args.release:
         introduction += [
             "",
             "This release of Ladybird uses the following libraries under the GNU Lesser General Public License. The",
@@ -813,6 +823,7 @@ def main() -> int:
     parser.add_argument(
         "--flatpak-licenses-dir", type=pathlib.Path, help="where flatpak-builder records the license files of modules"
     )
+    parser.add_argument("--source-bundle-url", help="URL of this release's corresponding third-party source bundle")
     args = parser.parse_args()
 
     if args.third_party_sources:
