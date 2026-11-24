@@ -21,6 +21,7 @@
 #include <UI/Qt/BrowserWindow.h>
 #include <UI/Qt/ChromeLayout.h>
 #include <UI/Qt/ChromeStyle.h>
+#include <UI/Qt/CleanLink.h>
 #include <UI/Qt/DevToolsBanner.h>
 #include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
@@ -43,6 +44,7 @@
 #include <QAbstractButton>
 #include <QActionGroup>
 #include <QApplication>
+#include <QClipboard>
 #include <QContextMenuEvent>
 #include <QCursor>
 #include <QDockWidget>
@@ -551,6 +553,13 @@ void BrowserWindow::initialize_ladybird_menu()
     m_ladybird_menu->addAction(application.new_tab_action());
     m_ladybird_menu->addAction(application.new_window_action());
     m_ladybird_menu->addAction(application.little_window_action());
+    auto* copy_clean_link = m_ladybird_menu->addAction("Copy Clean Link");
+    copy_clean_link->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C));
+    addAction(copy_clean_link);
+    connect(copy_clean_link, &QAction::triggered, this, [this] {
+        if (auto* tab = current_tab())
+            QGuiApplication::clipboard()->setText(clean_link(qstring_from_ak_string(tab->url().serialize())));
+    });
     m_ladybird_menu->addAction(application.new_private_window_action());
     m_ladybird_menu->addAction(application.reopen_recently_closed_tab_action());
     if (m_is_private == WebView::IsPrivate::Yes) {

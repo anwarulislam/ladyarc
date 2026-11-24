@@ -28,7 +28,7 @@ Ladyarc uses Ladybird's Qt frontend and browser engine. This checklist follows t
 - [ ] Start picture-in-picture automatically on tab switch. The browser already has a picture-in-picture window.
 - [ ] Control background playback from a sidebar mini player.
 - [ ] Switch tabs in most-recently-used order while holding Control.
-- [ ] Copy the current URL with tracking parameters removed.
+- [x] Copy Clean Link removes common campaign and click identifiers with Command+Shift+C or Ctrl+Shift+C. DevTools remains available on F12 and Command/Ctrl+Shift+I.
 - [ ] Capture a region, an element or a full page. Region and full-page capture already exist.
 - [ ] Drag completed files out of the downloads list.
 

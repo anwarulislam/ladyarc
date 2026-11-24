@@ -307,7 +307,6 @@ static void set_action_shortcuts(QAction& qaction, ActionID id)
     case ActionID::ToggleDevTools:
         qaction.setShortcuts({
             QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_I),
-            QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C),
             QKeySequence(Qt::Key_F12),
         });
         break;
