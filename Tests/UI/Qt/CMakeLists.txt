@@ -2,6 +2,13 @@ if (NOT Qt6_FOUND)
     return()
 endif()
 
+if (LINUX)
+    qt_add_executable(TestLadyarcSpaceProfiles TestLadyarcSpaceProfiles.cpp "${LADYBIRD_SOURCE_DIR}/UI/Qt/ladybird.qrc")
+    target_link_libraries(TestLadyarcSpaceProfiles PRIVATE ladybird_impl)
+    add_dependencies(TestLadyarcSpaceProfiles Hub WebContent RequestServer Compositor ImageDecoder)
+    ladybird_python_test(test-ladyarc-space-profiles.py ARGS $<TARGET_FILE:TestLadyarcSpaceProfiles> TIMEOUT 150)
+endif()
+
 add_library(QtTestMain OBJECT
     QtTestMain.cpp
     "${LADYBIRD_SOURCE_DIR}/Libraries/LibTest/AssertionHandler.cpp"

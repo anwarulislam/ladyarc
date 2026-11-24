@@ -103,6 +103,13 @@ jobs:
           cmake --install . --prefix "$PWD/runtime" --component ladybird_Runtime
           python3 ../Meta/package-ladyarc.py runtime dist "$PLATFORM" "$ARCH"
 
+      - name: Exercise shared and isolated Spaces in one window
+        if: matrix.platform == 'Linux'
+        run: |
+          cmake -S . -B Build -DBUILD_TESTING=ON
+          cmake --build Build --parallel 3 --target TestLadyarcSpaceProfiles
+          ctest --test-dir Build --output-on-failure --no-tests=error -R '^test-ladyarc-space-profiles$'
+
       - name: Collect corresponding third-party sources
         if: github.event_name == 'release'
         working-directory: Build
