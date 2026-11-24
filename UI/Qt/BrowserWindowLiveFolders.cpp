@@ -121,7 +121,7 @@ void BrowserWindow::refresh_live_folders()
         HubConnection::the().fetch_public_pull_requests(ak_string_from_qstring(repo.section('/', 0, 0)), ak_string_from_qstring(repo.section('/', 1, 1)), [prefix](auto response) {
             auto& prefs = Application::desktop_preferences();
             auto json = QJsonDocument {};
-            if (!response.had_network_error && response.response_code == 200 && response.body.length() <= 8 * 1024 * 1024)
+            if (!response.had_network_error && response.response_code == 200u && response.body.length() <= 8 * 1024 * 1024)
                 json = QJsonDocument::fromJson(QByteArray::fromRawData(response.body.characters(), response.body.length()));
             if (json.isArray()) {
                 QVariantList rows;
