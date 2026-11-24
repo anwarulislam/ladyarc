@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ladyarc-${{ github.event_name }}-${{ github.ref }}
+  group: ladyarc-${{ github.event_name == 'release' && github.ref || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -21,6 +21,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
     timeout-minutes: 360
+    env:
+      CCACHE_MAXSIZE: 2G
+      CCACHE_COMPILERCHECK: content
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +103,16 @@ jobs:
           path: Build/caches/vcpkg-binary-cache
           key: ${{ steps.dependencies.outputs.cache-primary-key }}
 
+      - name: Restore compiler objects
+        id: objects
+        uses: actions/cache/restore@v6
+        with:
+          path: .ccache
+          key: ladyarc-ccache-${{ matrix.runner }}-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: ladyarc-ccache-${{ matrix.runner }}-${{ matrix.arch }}-
+
       - name: Compile the desktop UI and Hub interfaces first
+        id: desktop
         run: |
           ninja -C Build -t targets all > "$RUNNER_TEMP/ninja-targets"
           awk -F': ' '/(UI\/Qt|Services\/Hub)\/CMakeFiles\/.*\.o: CXX/ { print $1 }' \
@@ -110,6 +122,13 @@ jobs:
 
       - name: Build the browser and its services
         run: cmake --build Build --parallel 3
+
+      - name: Save compiler objects for subsequent builds
+        if: ${{ !cancelled() && steps.desktop.outcome != 'skipped' && steps.objects.outcome == 'success' && steps.objects.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .ccache
+          key: ${{ steps.objects.outputs.cache-primary-key }}
 
       - name: Package the browser
         working-directory: Build
