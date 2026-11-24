@@ -74,6 +74,8 @@
 #include <QLabel>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <UI/Qt/KeyboardShortcuts.h>
+
 #include <QNativeGestureEvent>
 #include <QPaintEvent>
 #include <QPainter>
@@ -2640,7 +2642,9 @@ bool WebContentView::event(QEvent* event)
         auto* key_event = static_cast<QKeyEvent*>(event);
         auto dismisses_preview = key_event->key() == Qt::Key_Escape && key_event->modifiers() == Qt::NoModifier
             && window()->windowModality() == Qt::WindowModal && !window()->isFullScreen();
-        if (dismisses_preview || is_browser_reserved_shortcut(*key_event)) {
+        auto sequence = QKeySequence(key_event->keyCombination());
+        auto remapped = remapped_shortcut(*window(), sequence);
+        if (dismisses_preview || remapped.value_or(is_browser_reserved_shortcut(*key_event))) {
             event->ignore();
             return false;
         }

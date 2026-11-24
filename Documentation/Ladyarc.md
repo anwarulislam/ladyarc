@@ -43,5 +43,5 @@ Desktop Arc interactions have implementation priority. Cross-device services, mo
 - [ ] Sync Spaces, pins and settings between devices.
 - [ ] Access desktop Spaces from a mobile app.
 - [x] Built-in content blocking. The site settings popover exposes the blocker and its per-site toggle.
-- [ ] Remap browser shortcuts in Settings.
+- [x] Settings → Appearance → Edit shortcuts changes browser commands across the profile. Select a command, record a shortcut and choose Apply, or restore its defaults.
 - [ ] Run full uBlock Origin with Manifest V2 request blocking.

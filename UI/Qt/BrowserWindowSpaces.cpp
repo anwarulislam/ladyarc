@@ -8,6 +8,7 @@
 #include <UI/Qt/BrowserWindow.h>
 #include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
+#include <UI/Qt/KeyboardShortcuts.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/SpaceBookmarks.h>
 #include <UI/Qt/StringUtils.h>
@@ -140,8 +141,8 @@ void BrowserWindow::initialize_spaces()
     auto* next = menu->addAction("Next Space");
     previous->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_BracketLeft));
     next->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_BracketRight));
-    addAction(previous);
-    addAction(next);
+    addAction(register_shortcut(previous, "previous_space"));
+    addAction(register_shortcut(next, "next_space"));
     connect(previous, &QAction::triggered, this, [this] { cycle_space(-1); });
     connect(next, &QAction::triggered, this, [this] { cycle_space(1); });
     auto* move_menu = menu->addMenu("Move Current Tab to Space");

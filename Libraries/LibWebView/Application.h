@@ -141,6 +141,7 @@ public:
     static Requests::RequestControlClient& request_server_control_client();
 
     virtual bool supports_system_menu_bar() const { return false; }
+    virtual void show_keyboard_shortcuts() { }
     virtual bool supports_vertical_tabs() const { return false; }
     virtual bool supports_private_browsing_windows() const { return false; }
     virtual bool supports_client_side_window_decorations() const { return false; }

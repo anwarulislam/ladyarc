@@ -15,7 +15,10 @@ function setSegmentedValue(control, value) {
 
 let APPEARANCE = {};
 
+document.getElementById("edit-keyboard-shortcuts").addEventListener("click", () => ladybird.sendMessage("editKeyboardShortcuts"));
+
 const loadFeatures = features => {
+    document.getElementById("keyboard-shortcuts-group").classList.toggle("hidden", !features?.verticalTabs);
     showMenuBarGroup.classList.toggle("hidden", !features?.menuBar);
 };
 

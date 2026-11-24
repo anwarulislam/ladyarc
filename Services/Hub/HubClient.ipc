@@ -255,6 +255,7 @@ struct Hub::ViewState {
 // What the Hub tells the UI.
 endpoint HubClient
 {
+    show_keyboard_shortcuts() =|
     crash_reports_changed() =|
     request_finished(u64 request_id, bool had_network_error, Optional<u32> response_code, Vector<HTTP::Header> response_headers, ByteString body) =|
     app_open_new_tab(Vector<URL::URL> urls) =|

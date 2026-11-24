@@ -25,6 +25,7 @@
 #include <UI/Qt/DevToolsBanner.h>
 #include <UI/Qt/HubConnection.h>
 #include <UI/Qt/Icon.h>
+#include <UI/Qt/KeyboardShortcuts.h>
 #include <UI/Qt/LadybirdButton.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/Motion.h>
@@ -516,15 +517,15 @@ void BrowserWindow::initialize_application_actions()
     auto& application = Application::the();
 
     // Add all actions to the window itself. This allows shortcuts to activate when the system menu bar is not visible.
-    addAction(application.new_tab_action());
-    addAction(application.new_window_action());
-    addAction(application.little_window_action());
-    addAction(application.new_private_window_action());
-    addAction(application.reopen_recently_closed_tab_action());
-    addAction(application.close_current_tab_action());
-    addAction(application.open_next_tab_action());
-    addAction(application.open_previous_tab_action());
-    addAction(application.search_tabs_action());
+    addAction(register_shortcut(application.new_tab_action(), "new_tab"));
+    addAction(register_shortcut(application.new_window_action(), "new_window"));
+    addAction(register_shortcut(application.little_window_action(), "little_window"));
+    addAction(register_shortcut(application.new_private_window_action(), "new_private_window"));
+    addAction(register_shortcut(application.reopen_recently_closed_tab_action(), "reopen_recently_closed_tab"));
+    addAction(register_shortcut(application.close_current_tab_action(), "close_current_tab"));
+    addAction(register_shortcut(application.open_next_tab_action(), "open_next_tab"));
+    addAction(register_shortcut(application.open_previous_tab_action(), "open_previous_tab"));
+    addAction(register_shortcut(application.search_tabs_action(), "search_tabs"));
 #if defined(AK_OS_MACOS)
     constexpr auto switcher_modifier = Qt::META; // Physical Control on macOS.
 #else
@@ -532,24 +533,24 @@ void BrowserWindow::initialize_application_actions()
 #endif
     new QShortcut(QKeySequence(switcher_modifier | Qt::Key_Tab), this, [this] { cycle_recent_tab(1); });
     new QShortcut(QKeySequence(switcher_modifier | Qt::SHIFT | Qt::Key_Tab), this, [this] { cycle_recent_tab(-1); });
-    addAction(application.move_focus_action());
-    addAction(application.open_file_action());
-    addAction(application.open_settings_action());
-    addAction(application.open_downloads_action());
-    addAction(application.toggle_bookmark_bar_action());
-    addAction(application.toggle_sidebar_action());
-    addAction(application.open_location_action());
-    addAction(application.navigate_back_action());
-    addAction(application.navigate_forward_action());
-    addAction(application.reload_action());
-    addAction(application.reload_bypassing_cache_action());
-    addAction(application.find_in_page_action());
-    addAction(application.find_next_action());
-    addAction(application.find_previous_action());
-    addAction(application.zoom_in_action());
-    addAction(application.zoom_out_action());
-    addAction(application.reset_zoom_action());
-    addAction(application.quit_action());
+    addAction(register_shortcut(application.move_focus_action(), "move_focus"));
+    addAction(register_shortcut(application.open_file_action(), "open_file"));
+    addAction(register_shortcut(application.open_settings_action(), "open_settings"));
+    addAction(register_shortcut(application.open_downloads_action(), "open_downloads"));
+    addAction(register_shortcut(application.toggle_bookmark_bar_action(), "toggle_bookmark_bar"));
+    addAction(register_shortcut(application.toggle_sidebar_action(), "toggle_sidebar"));
+    addAction(register_shortcut(application.open_location_action(), "open_location"));
+    addAction(register_shortcut(application.navigate_back_action(), "navigate_back"));
+    addAction(register_shortcut(application.navigate_forward_action(), "navigate_forward"));
+    addAction(register_shortcut(application.reload_action(), "reload"));
+    addAction(register_shortcut(application.reload_bypassing_cache_action(), "reload_bypassing_cache"));
+    addAction(register_shortcut(application.find_in_page_action(), "find_in_page"));
+    addAction(register_shortcut(application.find_next_action(), "find_next"));
+    addAction(register_shortcut(application.find_previous_action(), "find_previous"));
+    addAction(register_shortcut(application.zoom_in_action(), "zoom_in"));
+    addAction(register_shortcut(application.zoom_out_action(), "zoom_out"));
+    addAction(register_shortcut(application.reset_zoom_action(), "reset_zoom"));
+    addAction(register_shortcut(application.quit_action(), "quit"));
 
     for (int i = 0; i < 8; ++i) {
         new QShortcut(QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_1 + i)), this, [this, i]() {
@@ -600,7 +601,7 @@ void BrowserWindow::initialize_ladybird_menu()
     });
     auto* copy_clean_link = m_ladybird_menu->addAction("Copy Clean Link");
     copy_clean_link->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C));
-    addAction(copy_clean_link);
+    addAction(register_shortcut(copy_clean_link, "copy_clean_link"));
     connect(copy_clean_link, &QAction::triggered, this, [this] {
         if (auto* tab = current_tab())
             QGuiApplication::clipboard()->setText(clean_link(qstring_from_ak_string(tab->url().serialize())));

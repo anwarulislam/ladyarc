@@ -61,6 +61,11 @@ void HubConnection::die()
     Core::Process::terminate_immediately(1);
 }
 
+void HubConnection::show_keyboard_shortcuts()
+{
+    Application::the().show_keyboard_shortcuts();
+}
+
 void HubConnection::crash_reports_changed()
 {
 #ifdef LADYBIRD_HUB_IN_OWN_PROCESS

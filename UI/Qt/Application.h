@@ -304,6 +304,7 @@ private:
     Web::Clipboard::SystemClipboardItem clipboard_item() const;
 
     virtual bool supports_system_menu_bar() const override;
+    virtual void show_keyboard_shortcuts() override;
     virtual bool supports_vertical_tabs() const override { return true; }
     virtual bool supports_client_side_window_decorations() const override
     {

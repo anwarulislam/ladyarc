@@ -122,6 +122,7 @@ private:
     virtual void resolve_external_url_handler(URL::URL const& url, WebView::ExternalURLHandlerCallback callback) const override;
     virtual bool supports_clipboard_type(WebView::Application::ClipboardType type) const override;
     virtual bool supports_system_menu_bar() const override;
+    virtual void show_keyboard_shortcuts() override;
     virtual bool supports_vertical_tabs() const override;
     virtual bool supports_private_browsing_windows() const override;
     virtual bool supports_client_side_window_decorations() const override;

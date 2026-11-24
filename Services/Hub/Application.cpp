@@ -555,6 +555,12 @@ bool Application::supports_system_menu_bar() const
     return WebView::Application::supports_system_menu_bar();
 }
 
+void Application::show_keyboard_shortcuts()
+{
+    if (auto* ui = ConnectionFromUI::the())
+        ui->async_show_keyboard_shortcuts();
+}
+
 bool Application::supports_vertical_tabs() const
 {
     if (m_host)

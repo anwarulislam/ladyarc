@@ -82,6 +82,9 @@ void SettingsUI::register_interfaces()
 {
     m_site_permissions_observer = make<SettingsUISitePermissionsObserver>(*this);
 
+    register_interface("editKeyboardShortcuts"sv, [](auto const&) {
+        Application::the().show_keyboard_shortcuts();
+    });
     register_interface("loadFeatures"sv, [this](auto const&) {
         load_features();
     });
