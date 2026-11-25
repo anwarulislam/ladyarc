@@ -96,11 +96,12 @@ TEST_CASE(named_space_profiles_keep_same_origin_state_separate)
     auto personal_client = TRY_OR_FAIL(WebView::Application::request_server_client(WebView::IsPrivate::No, 29));
     EXPECT_EQ(app->session_for_request_server_client(client_id_of(*work_client)).ptr(), work.ptr());
     EXPECT_EQ(app->session_for_request_server_client(client_id_of(*personal_client)).ptr(), personal.ptr());
-    auto work_page = TRY_OR_FAIL(app->open_page_for_new_tab(*work));
-    auto personal_page = TRY_OR_FAIL(app->open_page_for_new_tab(*personal));
-    EXPECT_EQ(&work_page->client().session(), work.ptr());
-    EXPECT_EQ(&personal_page->client().session(), personal.ptr());
-    EXPECT_NE(&work_page->client(), &personal_page->client());
+    auto theme = TRY_OR_FAIL(Gfx::load_system_theme(LexicalPath::join(WebView::s_ladybird_resource_root, "themes"sv, "Default.ini"sv).string()));
+    auto work_view = WebView::HeadlessWebView::create(theme, { 800, 600 }, WebView::IsPrivate::No, work->profile_id());
+    auto personal_view = WebView::HeadlessWebView::create(theme, { 800, 600 }, WebView::IsPrivate::No, personal->profile_id());
+    EXPECT_EQ(&work_view->page().client().session(), work.ptr());
+    EXPECT_EQ(&personal_view->page().client().session(), personal.ptr());
+    EXPECT_NE(&work_view->page().client(), &personal_view->page().client());
 }
 
 TEST_CASE(request_server_snapshots_report_session_privacy)

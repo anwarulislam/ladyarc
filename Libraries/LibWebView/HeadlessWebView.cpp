@@ -54,9 +54,9 @@ NonnullOwnPtr<PictureInPictureWindow> HeadlessWebView::create_picture_in_picture
     return make<HeadlessPictureInPictureWindow>(size, move(view));
 }
 
-NonnullOwnPtr<HeadlessWebView> HeadlessWebView::create(Core::AnonymousBuffer theme, Web::DevicePixelSize window_size, IsPrivate is_private)
+NonnullOwnPtr<HeadlessWebView> HeadlessWebView::create(Core::AnonymousBuffer theme, Web::DevicePixelSize window_size, IsPrivate is_private, u64 profile_id)
 {
-    auto view = adopt_own(*new HeadlessWebView(move(theme), window_size, is_private));
+    auto view = adopt_own(*new HeadlessWebView(move(theme), window_size, is_private, profile_id));
     view->initialize_tab(Web::HTML::VisibilityState::Visible);
 
     return view;
@@ -64,7 +64,7 @@ NonnullOwnPtr<HeadlessWebView> HeadlessWebView::create(Core::AnonymousBuffer the
 
 NonnullOwnPtr<HeadlessWebView> HeadlessWebView::create_child(HeadlessWebView& parent, CanonicalTraversable& traversable, IsOwnedByParent is_owned_by_parent)
 {
-    auto view = adopt_own(*new HeadlessWebView(parent.m_theme, parent.m_viewport_size, parent.is_private()));
+    auto view = adopt_own(*new HeadlessWebView(parent.m_theme, parent.m_viewport_size, parent.is_private(), parent.session().profile_id()));
     if (is_owned_by_parent == IsOwnedByParent::Yes)
         view->set_owner_view(parent);
 
@@ -73,8 +73,8 @@ NonnullOwnPtr<HeadlessWebView> HeadlessWebView::create_child(HeadlessWebView& pa
     return view;
 }
 
-HeadlessWebView::HeadlessWebView(Core::AnonymousBuffer theme, Web::DevicePixelSize viewport_size, IsPrivate is_private)
-    : ViewImplementation(is_private)
+HeadlessWebView::HeadlessWebView(Core::AnonymousBuffer theme, Web::DevicePixelSize viewport_size, IsPrivate is_private, u64 profile_id)
+    : ViewImplementation(is_private, profile_id)
     , m_theme(move(theme))
     , m_viewport_size(viewport_size)
 {
@@ -238,7 +238,8 @@ HeadlessWebView& HeadlessWebView::adopt_child_web_view(NonnullOwnPtr<HeadlessWeb
 // A headless browser has no tabs or windows, so what the browser UI would open in a new one gets a view of its own.
 ViewImplementation* HeadlessWebView::create_view_for_new_tab_or_window(IsPrivate is_private)
 {
-    return &adopt_child_web_view(HeadlessWebView::create(m_theme, m_viewport_size, is_private));
+    auto profile_id = this->is_private() == is_private ? session().profile_id() : 0;
+    return &adopt_child_web_view(HeadlessWebView::create(m_theme, m_viewport_size, is_private, profile_id));
 }
 
 void HeadlessWebView::discard_child_web_view(HeadlessWebView& child_web_view)
