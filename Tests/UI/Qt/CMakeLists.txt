@@ -6,17 +6,15 @@ if (LINUX)
     qt_add_executable(TestLadyarcSpaceProfiles TestLadyarcSpaceProfiles.cpp "${LADYBIRD_SOURCE_DIR}/UI/Qt/ladybird.qrc")
     target_link_libraries(TestLadyarcSpaceProfiles PRIVATE ladybird_impl)
     add_dependencies(TestLadyarcSpaceProfiles Hub WebContent RequestServer Compositor ImageDecoder)
-    add_custom_target(check-ladyarc-storage
-        COMMAND $<TARGET_FILE:TestUIQt> --suite TestSessionStore
-        COMMAND $<TARGET_FILE:TestLibWebView> --suite TestDownloadStore
-        COMMAND $<TARGET_FILE:TestLibWebView> --suite TestRequestServerClientSessions
-        COMMAND $<TARGET_FILE:TestLibWebView> --suite TestRequestServerDiskCaches
-        DEPENDS TestUIQt TestLibWebView
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        USES_TERMINAL
-        VERBATIM
-    )
     ladybird_python_test(test-ladyarc-space-profiles.py ARGS $<TARGET_FILE:TestLadyarcSpaceProfiles> TIMEOUT 150)
+    add_test(NAME ladyarc-session-restore COMMAND $<TARGET_FILE:TestUIQt> --suite TestSessionStore)
+    set_tests_properties(test-ladyarc-space-profiles ladyarc-session-restore PROPERTIES LABELS "LadyarcDesktop")
+
+    foreach(suite IN ITEMS TestDownloadStore TestRequestServerClientSessions TestRequestServerDiskCaches)
+        add_test(NAME ladyarc-${suite} COMMAND $<TARGET_FILE:TestLibWebView> --suite ${suite}
+            WORKING_DIRECTORY "${LADYBIRD_SOURCE_DIR}/Tests/LibWebView")
+        set_tests_properties(ladyarc-${suite} PROPERTIES LABELS "LadyarcDesktop" TIMEOUT 120)
+    endforeach()
 endif()
 
 add_library(QtTestMain OBJECT

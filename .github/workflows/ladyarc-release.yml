@@ -143,8 +143,8 @@ jobs:
         if: matrix.platform == 'Linux'
         run: |
           cmake -S . -B Build -DBUILD_TESTING=ON -DBUILD_BROWSER_TESTS_ONLY=OFF
-          cmake --build Build --parallel 3 --target check-ladyarc-storage TestLadyarcSpaceProfiles
-          xvfb-run -a -s "-screen 0 1280x800x24" ctest --test-dir Build --output-on-failure --no-tests=error -R '^test-ladyarc-space-profiles$'
+          cmake --build Build --parallel 3 --target TestUIQt TestLibWebView TestLadyarcSpaceProfiles
+          xvfb-run -a -s "-screen 0 1280x800x24" ctest --test-dir Build --output-on-failure --no-tests=error -L '^LadyarcDesktop$'
 
       - name: Collect corresponding third-party sources
         if: github.event_name == 'release'
